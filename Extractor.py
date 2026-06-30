@@ -244,33 +244,20 @@ def extract_figure_regions(
     full_rect = pdf_page.rect
     drawings = pdf_page.get_drawings()
 
-    for idx, cap in enumerate(captions):
+for idx, cap in enumerate(captions):
         caption_text = cap.get("caption", "")
 
-        # search_for returns a list of fitz.Rect hit boxes
-        # Search using just "Figure 3-1" not the full caption to avoid
-        # whitespace/encoding mismatches
         short_match = re.match(r'(Figure\s+[A-Za-z]?\d+(?:[.\-]\d+)*)', caption_text, re.IGNORECASE)
         search_text = short_match.group(1) if short_match else caption_text
 
         hits = pdf_page.search_for(search_text)
-  
+
         if not hits:
             cap["file"] = None
             cap["clip_rect"] = None
             continue
 
-        cap_rect = hits[0]   # use first (topmost) hit
-
-        # Build clip rect: full page width, from `clip_height_pt`
-        # above the caption top down to the caption top.
-        # Clamped to the page top so we never go negative.
-        clip_rect = fitz.Rect(
-            full_rect.x0,
-            max(full_rect.y0, cap_rect.y0 - clip_height_pt),
-            full_rect.x1,
-            cap_rect.y0
-        )
+        cap_rect = hits[0]
 
         search_rect = fitz.Rect(
             full_rect.x0,
@@ -280,40 +267,37 @@ def extract_figure_regions(
         )
 
         visual_rects = []
-    for drawing in drawings:
-        r = drawing.get("rect")
-        if r and r.intersects(search_rect):
-            visual_rects.append(r & search_rect)
+        for drawing in drawings:
+            r = drawing.get("rect")
+            if r and r.intersects(search_rect):
+                visual_rects.append(r & search_rect)
 
-    if visual_rects:
-        clip_rect = search_rect
-        for r in visual_rects[1:]:
-            clip_rect |= r
+        if visual_rects:
+            clip_rect = search_rect
+            for r in visual_rects[1:]:
+                clip_rect |= r
 
-        clip_rect = fitz.Rect(
-            max(full_rect.x0, clip_rect.x0 - margin),
-            max(full_rect.y0, clip_rect.y0 - margin),
-            min(full_rect.x1, clip_rect.x1 + margin),
-            min(full_rect.y1, clip_rect.y1 + margin)
-        )
-    else:
-        clip_rect = search_rect
+            clip_rect = fitz.Rect(
+                max(full_rect.x0, clip_rect.x0 - margin),
+                max(full_rect.y0, clip_rect.y0 - margin),
+                min(full_rect.x1, clip_rect.x1 + margin),
+                min(full_rect.y1, clip_rect.y1 + margin)
+            )
+        else:
+            clip_rect = search_rect
 
         mat = fitz.Matrix(scale, scale)
         pixmap = pdf_page.get_pixmap(matrix=mat, clip=clip_rect)
 
-        # Build a safe filename from the caption
         safe_caption = re.sub(r'[^\w\-]', '_', caption_text)[:40]
         filename = f"figure_p{page_num+1}_{idx+1}_{safe_caption}.png"
         filepath = os.path.join(output_folder, filename)
 
         pixmap.save(filepath)
-        cap["file"] = filepath  
-        cap["clip_rect"] = tuple(clip_rect) 
+        cap["file"] = filepath
+        cap["clip_rect"] = tuple(clip_rect)
 
-    return captions   # list updated in-place, returned for clarity
-
-
+    return captions
 # ==========================================================
 # OCR FUNCTIONS
 # ==========================================================
