@@ -40,6 +40,62 @@ How It Works:
 OR can input GOLDEN JSON (Golden Spec.) for extraction to be compared to
 
 3. Report of changes as output, in format of CSV, JSON, MD
+
+   FEATURES:
+-Converts any value to lowercase string to be easily digested -averages 3 scores (accuracy, completeness, table/figure capture) -f1 score = comparison function for captions & requirements (everything captured exist in source -did i capture everything in source), extracts raw text from every page of extraction output to use for text comparisons -classifies requirements based on related words
+
+Formulas for Scores:
+
+Completeness = did extractor capture everything needed? (main keys present?=sections, requirements, figures, etc. ) (compares page count) (text extracted matches character count?) (amount of semantic chunks as pages?) (for every main key are key fields non-empty, i.e text, caption, page) (is csv is expected is it present and non-empty?)
+1. Completeness percentage
+   Formula:
+       completeness = mean(
+           required_json_field_score,
+           page_coverage_score,
+           text_coverage_score,
+           semantic_chunk_coverage_score,
+           record_field_completeness_score,
+           csv_presence_score
+       )
+       
+Accuracy = is extractor output actually correct? without GOLDEN JSON (how similar is extracted text to raw text) (is each requirement found exact in pdf text) (does my keyword classifier guess category thats same as actual categories) (are page numbers 1-n) (3 cross-checks for internal consistency = compares requirement list and per-page list w/ requirements in it for consistency, same for captions and tables/figures ) (do CSV and JSON file produced match) 
+2. Accuracy percentage
+   Formula without a gold/reference JSON:
+       accuracy = mean(
+           page_text_fidelity_score,
+           requirement_traceability_score,
+           category_consistency_score,
+           page_number_accuracy_score,
+           json_internal_consistency_score,
+           csv_json_consistency_score
+       )
+      
+GOLDEN JSON = replaces above with direct F1 comparisons against requirement F1, figure caption, table caption = but with the GOLDEN JSON ones, text fidelity (how well extractor followed parsing instructions), internal consistency
+   Formula with --gold-json:         can input a gold reference document to use for quality check 
+       accuracy = mean(
+           requirement_f1_score,
+           figure_caption_f1_score,
+           table_caption_f1_score,
+           page_text_fidelity_score,
+           json_internal_consistency_score
+       )
+       
+Table/figure capture = Were tables and figures properly detected, captioned, and saved? (does table count match PyMuPDF built-in table count) (do table captions match captions found by regex in PDF) (are CSV files prodcuced in extraction output actually exist/non-empty) (do figure captions match ones found by regex in PDF) (does image count match PyMuPDF built-in image embedded count)
+3. Table/figure capture percentage
+   Formula:
+       table_figure_capture = mean(
+           table_detection_f1_score,
+           table_caption_f1_score,
+           table_file_existence_score,
+           figure_caption_f1_score,
+           image_capture_f1_score
+       )
+
+
+-returns pass/fail for each category of score based on 95% threshold, assembles final report with scores, statuses, formulas and breakdowns in terminal
+TOTAL = Accuracy+Completeness+Table/Fig. Capture
+TOTAL >= 95% (default threshold) = PASS =/ FAIL = back to extractor/refinement
+
    
     
 Additional commands:
