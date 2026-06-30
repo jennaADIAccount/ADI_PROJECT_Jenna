@@ -280,14 +280,25 @@ def extract_figure_regions(
         )
 
         visual_rects = []
-        for drawing in drawings:
-            r = drawing.get("rect")
-            if r and r.intersects(search_rect):
-                visual_rects.append(r & search_rect)
+    for drawing in drawings:
+        r = drawing.get("rect")
+        if r and r.intersects(search_rect):
+            visual_rects.append(r & search_rect)
 
-        if visual_rects:
-            clip_rect = search_rect
-            
+    if visual_rects:
+        clip_rect = search_rect
+        for r in visual_rects[1:]:
+            clip_rect |= r
+
+        clip_rect = fitz.Rect(
+            max(full_rect.x0, clip_rect.x0 - margin),
+            max(full_rect.y0, clip_rect.y0 - margin),
+            min(full_rect.x1, clip_rect.x1 + margin),
+            min(full_rect.y1, clip_rect.y1 + margin)
+        )
+    else:
+        clip_rect = search_rect
+
         mat = fitz.Matrix(scale, scale)
         pixmap = pdf_page.get_pixmap(matrix=mat, clip=clip_rect)
 
