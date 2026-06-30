@@ -10,12 +10,12 @@ Document
     metadata
     sections
     requirements
-    figures        <-- now includes "file" path to clipped PNG in /figures/
+    figures       
     tables
     notes
     acronyms
     cross_references
-    semantic_chunks  <-- now section-level, not page-level
+    semantic_chunks  
     pages
 """
 
@@ -38,7 +38,7 @@ OUTPUT_DIR = "AXI_SPEC_OUTPUT"
 PAGE_FOLDER   = os.path.join(OUTPUT_DIR, "pages")
 IMAGE_FOLDER  = os.path.join(OUTPUT_DIR, "images")
 TABLE_FOLDER  = os.path.join(OUTPUT_DIR, "tables")
-FIGURE_FOLDER = os.path.join(OUTPUT_DIR, "figures")   # was created but never written to — now used
+FIGURE_FOLDER = os.path.join(OUTPUT_DIR, "figures")   
 
 os.makedirs(OUTPUT_DIR,   exist_ok=True)
 os.makedirs(PAGE_FOLDER,  exist_ok=True)
@@ -161,7 +161,7 @@ def extract_document_metadata(pdf):
 
 
 # ==========================================================
-# PAGE SCREENSHOTS  (unchanged, still optional)
+# PAGE SCREENSHOTS  
 # ==========================================================
 
 def save_page_screenshots(pdf_path, output_folder, scale=3):
@@ -177,7 +177,7 @@ def save_page_screenshots(pdf_path, output_folder, scale=3):
 
 
 # ==========================================================
-# IMAGE EXTRACTION  (raster/embedded images — unchanged)
+# IMAGE EXTRACTION  (raster/embedded images)
 # ==========================================================
 
 def extract_images(pdf):
@@ -339,7 +339,7 @@ def extract_text_from_figure_region(pdf_page, clip_rect):
 
 
 # ==========================================================
-# TABLE EXTRACTION  (unchanged)
+# TABLE EXTRACTION  
 # ==========================================================
 
 def extract_tables(page, page_num):
@@ -421,23 +421,6 @@ def classify_requirement(text):
         return "Interface"
     return "Functional"
 
-
-# def extract_requirements(text, section_id=None):
-#     requirements = []
-#     for line in text.splitlines():
-#         line = line.strip()
-#         if not line:
-#             continue
-#         if REQUIREMENT_REGEX.search(line):
-#             req_match = REQ_ID_REGEX.search(line)
-#             req_id = req_match.group(1) if req_match else None
-#             requirements.append({
-#                 "id":       req_id,
-#                 "section":  section_id,
-#                 "category": classify_requirement(line),
-#                 "text":     line
-#             })
-#     return requirements
 
 def extract_requirements(text, section_id=None):
     requirements = []
@@ -815,7 +798,7 @@ def parse_pdf(pdf_path):
     # FIX 5: section-level chunks built from all pages at once
     document["semantic_chunks"] = build_semantic_chunks(document["pages"])
 
-    # Deduplicate acronyms (unchanged)
+    # Deduplicate acronyms
     document["acronyms"] = sorted(set(document["acronyms"]))
 
     # ----------------------------------------------------------
