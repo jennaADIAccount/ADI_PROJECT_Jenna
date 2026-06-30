@@ -21,7 +21,7 @@ This project is specific to:
 ### Task 1: Extractor
 1. Ingests Specification (AMBA AXI or RISC-V ISA)
 2. Extracts & parses information
-3. Organises extracted content into document.jsona nd seperate files for images, figures, tables.
+3. Organises extracted content into document.jsona nd seperate files for images, figures, tables
 
 ### Task 2: Comparator
 1. Normalises text
@@ -39,13 +39,6 @@ This project is specific to:
 
 ## How to Run
 
-
-```bash
-git clone https://github.com/your-username/your-repo.git
-cd your-repo
-```
-
-
 ### Extractor
 ```bash
 python extractor.py --input data/input.json
@@ -62,8 +55,8 @@ python extractor_quality_check.py \
   --json data/document.json \
   --pdf docs/spec.pdf
 ```
-### Additional Quality Checker Features:
 
+### Additional Quality Checker Features:
 ```bash
   --csv path/to/requirements.csv \
   --gold-json path/to/gold_reference.json \
