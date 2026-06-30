@@ -18,22 +18,22 @@ This project is specific to:
 ## Tasks
 
 ### Task 1: Extractor
-1. Ingests Specification (AMBA AXI or RISC-V ISA)
-2. Extracts & parses information
-3. Organises extracted content into document.jsona nd seperate files for images, figures, tables
+- Ingests Specification (AMBA AXI or RISC-V ISA)
+- Extracts & parses information
+- Organises extracted content into document.json and seperate files for images, figures, tables
 
 ### Task 2: Comparator
-1. Normalises text
-2. Builds unique key for each item so can match identical items across versions even if it has different position
-3. Checks if item was removed, added, modified for all types of content in file
-4. Script attempts a guess at modification reasons
-5. Detected changes -> Report = in 3 formats, CSV, JSON, MD
+- Normalises text
+- Builds unique key for each item so can match identical items across versions even if it has different position
+- Checks if item was removed, added, modified for all types of content in file
+- Script attempts a guess at modification reasons
+- Detected changes -> Report = in 3 formats, CSV, JSON, MD
 
 ### Task 3: Quality Checker
-1. Input PDF Spec. and extraction of it
-2. Checks quality (completeness, accuracy, table/figure capture)
+- Input PDF Spec. and extraction of it
+- Checks quality (completeness, accuracy, table/figure capture)
    OR can input GOLDEN JSON (Golden Spec.) for extraction to be compared to
-3. Report of changes as output, in format of CSV, JSON, MD
+- Report of changes as output, in format of CSV, JSON, MD
 
 
 
