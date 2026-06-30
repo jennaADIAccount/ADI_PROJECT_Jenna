@@ -37,6 +37,15 @@ This project is specific to:
 3. Report of changes as output, in format of CSV, JSON, MD
 
 
+
+| Module | Input | Output | Purpose |
+| --- | --- | --- | --- |
+| Extractor | Specification PDF / JSON | `document.json`, Figures, Tables, Images | Parses and structures specification content |
+| Comparator | `Specification.json`, `Extractor Output.json` | CSV, JSON, MD | Detects added, removed, and modified items |
+| Quality Checker | PDF, JSON, CSV, gold JSON | JSON | Measures extraction completeness and accuracy |
+
+
+
 ## How to Run
 
 ### Extractor
