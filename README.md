@@ -1,5 +1,5 @@
 # Analog Devices & APRILAI Project ##
-#### Jenna Shaikh - Intern 1
+### Jenna Shaikh - Intern 1
 
 ## Overview
 This project is designed to:
