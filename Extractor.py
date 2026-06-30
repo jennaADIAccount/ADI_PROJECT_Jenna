@@ -266,7 +266,7 @@ for idx, cap in enumerate(captions):
             cap_rect.y0
         )
 
-        visual_rects = []
+visual_rects = []
         for drawing in drawings:
             r = drawing.get("rect")
             if r and r.intersects(search_rect):
