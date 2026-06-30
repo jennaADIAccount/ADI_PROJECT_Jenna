@@ -546,6 +546,7 @@ VALID_VPLAN_SECTION_REGEX = re.compile(
    r'^(?:[A-C]\d+(?:\.\d+)*)$'
 )
 
+#This function "asks" = is this section ID an appendix-style section like A1 or B2.3?
 def is_valid_vplan_section(section):
    if section is None:
        return False
@@ -702,7 +703,7 @@ def parse_pdf(pdf_path):
         elif current_section is None:
             current_section = "Unknown"
 
-        requirements  = extract_requirements(text, current_section)
+    
         requirements = [
             r for r in requirements
             if is_valid_vplan_section(r.get("section"))
