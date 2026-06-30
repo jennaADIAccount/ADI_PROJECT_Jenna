@@ -35,13 +35,11 @@ PDF_PATH = r"/home/eng-6990/PROJECT/PROJECT briefs and info./amba_axi_protocol_s
 
 OUTPUT_DIR = "AXI_SPEC_OUTPUT"
 
-PAGE_FOLDER   = os.path.join(OUTPUT_DIR, "pages")
 IMAGE_FOLDER  = os.path.join(OUTPUT_DIR, "images")
 TABLE_FOLDER  = os.path.join(OUTPUT_DIR, "tables")
 FIGURE_FOLDER = os.path.join(OUTPUT_DIR, "figures")   
 
 os.makedirs(OUTPUT_DIR,   exist_ok=True)
-os.makedirs(PAGE_FOLDER,  exist_ok=True)
 os.makedirs(IMAGE_FOLDER, exist_ok=True)
 os.makedirs(TABLE_FOLDER, exist_ok=True)
 os.makedirs(FIGURE_FOLDER,exist_ok=True)
@@ -158,22 +156,6 @@ def extract_document_metadata(pdf):
         "creation_date":     metadata.get("creationDate"),
         "modification_date": metadata.get("modDate")
     }
-
-
-# ==========================================================
-# PAGE SCREENSHOTS  
-# ==========================================================
-
-def save_page_screenshots(pdf_path, output_folder, scale=3):
-    pdf = pdfium.PdfDocument(pdf_path)
-    print("\nSaving page screenshots...")
-    for i in range(len(pdf)):
-        page = pdf[i]
-        bitmap = page.render(scale=scale)
-        image = bitmap.to_pil()
-        output_path = os.path.join(output_folder, f"page_{i+1:03}.png")
-        image.save(output_path)
-        print("Saved:", output_path)
 
 
 # ==========================================================
@@ -774,7 +756,6 @@ def parse_pdf(pdf_path):
     print("PARSING COMPLETE")
     print("===================================")
     print("JSON:    ", json_path)
-    print("Pages:   ", PAGE_FOLDER)
     print("Images:  ", IMAGE_FOLDER)
     print("Tables:  ", TABLE_FOLDER)
     print("Figures: ", FIGURE_FOLDER)
