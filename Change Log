@@ -1,17 +1,13 @@
-CHANGE LOG:
--my extracted figures were not cropped enough 
--puts ocr error if no image path (316-328) = writes out text in an image
--made heading extraction more precise (380-382) = more detailed heading extraction
--added to extraction of requirements (415-430) = normalised text first
--visual requirement hints (595-613) = refining image search with visual keywords 
--fallback heading detector = in case pymupdf misses
--no more page screenshots = too much processing, unnecessary
+CHANGE LOG:  (ELsa and Jenna)
+-Extracted figures were not cropped enough 
+-OCR error if no image path (316-328) = writes out text in an image
+-Heading extraction more precise (380-382) 
+-Addition of text normalisation to extraction of requirements (415-430) 
+-Visual requirement hints (595-613) = refining image search with visual keywords 
+-Fallback heading detector = in case PyMuPDF misses
+-Removed page screenshots = unnecessary
 -more detailed figure parsing and (689-756) = 
--valid vplan section (564-571) = 
 -used tesseract for text guesses based on pixel patterns -> using PyMyPDF to efficiently read text objects from pdf
 
-NEXT VER.:
--too cropped
-
 CURRENT:
-(not fixed height of figure)
+-fixing figure cropping
