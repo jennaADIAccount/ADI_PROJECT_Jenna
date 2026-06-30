@@ -1,0 +1,844 @@
+"""
+Structure of Output:
+
+figures
+images
+pages
+tables
+Document
+    document_name: "outputSPEC2",
+    metadata
+    sections
+    requirements
+    figures        <-- now includes "file" path to clipped PNG in /figures/
+    tables
+    notes
+    acronyms
+    cross_references
+    semantic_chunks  <-- now section-level, not page-level
+    pages
+"""
+
+import os
+import re
+import json
+import fitz
+import pandas as pd
+import pypdfium2 as pdfium
+import pytesseract
+from PIL import Image
+# ==========================================================
+# CONFIGURATION
+# ==========================================================
+FILE_NAME = "amba_axi_protocol_spec.pdf"
+PDF_PATH = r"/home/eng-6990/PROJECT/PROJECT briefs and info./amba_axi_protocol_spec.pdf"
+
+OUTPUT_DIR = "AXI_SPEC_OUTPUT"
+
+PAGE_FOLDER   = os.path.join(OUTPUT_DIR, "pages")
+IMAGE_FOLDER  = os.path.join(OUTPUT_DIR, "images")
+TABLE_FOLDER  = os.path.join(OUTPUT_DIR, "tables")
+FIGURE_FOLDER = os.path.join(OUTPUT_DIR, "figures")   # was created but never written to — now used
+
+os.makedirs(OUTPUT_DIR,   exist_ok=True)
+os.makedirs(PAGE_FOLDER,  exist_ok=True)
+os.makedirs(IMAGE_FOLDER, exist_ok=True)
+os.makedirs(TABLE_FOLDER, exist_ok=True)
+os.makedirs(FIGURE_FOLDER,exist_ok=True)
+
+# ==========================================================
+# REGEX PATTERNS
+# ==========================================================
+
+# FIX 1 — SECTION_REGEX
+# ORIGINAL only matched appendix-style IDs: A1, B2.3, C4.1.2
+#   r'^(A\d+(?:\.\d+)*|B\d+(?:\.\d+)*|C\d+(?:\.\d+)*)\s+(.+)$'
+# The AXI spec body uses numeric sections like 1, 2.3, 4.1.2.
+# Appendix sections use A4, B1.2 etc.
+# FIX: accept leading digits OR a single A/B/C letter followed by digits,
+#      covering both body sections and appendices in one pattern.
+SECTION_REGEX = re.compile(
+    r'^((?:\d+(?:\.\d+)*|[A-C]\d+(?:\.\d+)*))\s+(.+)$'
+)
+
+FIGURE_CAPTION_REGEX = re.compile(
+    r'^Figure\s+[A-Za-z]?\d+(?:\.\d+)*\s*:',
+    re.IGNORECASE
+)
+
+TABLE_REGEX = re.compile(
+    r'(Table)\s+([A-Za-z]?\d+(?:[-.]\d+)*)',
+    re.IGNORECASE
+)
+
+REQ_ID_REGEX = re.compile(
+    r'([A-Z_]*REQ[-_]?\d+)',
+    re.IGNORECASE
+)
+
+REQUIREMENT_REGEX = re.compile(
+    r'\b('
+    r'shall|must|must not|will|should|'
+    r'required to|may not|is prohibited|'
+    r'remains asserted|remain asserted|'
+    r'indicates that|can be sent|'
+    r'must be ordered|'
+    r'can only be|'
+    r'is returned|'
+    r'is issued|'
+    r'is generated|'
+    r'is valid only when'
+    r')\b',
+    re.IGNORECASE
+)
+
+NOTE_REGEX = re.compile(
+    r'^(NOTE|WARNING|CAUTION|IMPORTANT|ASSUMPTION)\b',
+    re.IGNORECASE
+)
+
+ACRONYM_REGEX = re.compile(
+    r'\b([A-Z]{2,10})\b'
+)
+
+# FIX 2 — SECTION_REF_REGEX capturing group
+# ORIGINAL had a capturing group (\.\d+)* inside the pattern:
+#   r'Section\s+\d+(\.\d+)*'
+# re.findall() returns the CONTENTS of capturing groups, not the full match.
+# So "Section 2.3" would return [".3"] instead of ["Section 2.3"].
+# FIX: make the repeated group non-capturing with (?:...) so findall
+#      returns the whole match string.
+SECTION_REF_REGEX = re.compile(
+    r'Section\s+\d+(?:\.\d+)*',
+    re.IGNORECASE
+)
+
+# These two were already correct (no capturing groups), left unchanged.
+FIGURE_REF_REGEX = re.compile(
+    r'Figure\s+[A-Za-z]?\d+(?:[-.]\d+)*',
+    re.IGNORECASE
+)
+
+TABLE_REF_REGEX = re.compile(
+    r'Table\s+[A-Za-z]?\d+(?:[-.]\d+)*',
+    re.IGNORECASE
+)
+
+# ==========================================================
+# ACRONYM STOPLIST
+# FIX 3 — Acronym noise
+# ORIGINAL had no stoplist, so common English uppercase words
+# (AND, THE, FOR, WITH…) and single-letter abbreviations were
+# included as "acronyms". Added a stoplist of common false positives.
+# ==========================================================
+ACRONYM_STOPLIST = {
+    "THE", "AND", "FOR", "WITH", "FROM", "THIS", "THAT",
+    "ARE", "NOT", "BUT", "ITS", "ALL", "ANY", "CAN",
+    "HAS", "HAVE", "BEEN", "WILL", "MAY", "SHALL", "MUST",
+    "WHEN", "THEN", "EACH", "SUCH", "BOTH", "ALSO", "INTO",
+    "OVER", "UPON", "USED", "ONLY", "MORE", "THAN", "BEEN",
+    "WHICH", "THERE", "THEIR", "THESE", "THOSE", "WHAT",
+    "PAGE", "NOTE", "TYPE", "DATA", "BASE", "TRUE", "FALSE"
+}
+
+
+# ==========================================================
+# METADATA
+# ==========================================================
+
+def extract_document_metadata(pdf):
+    metadata = pdf.metadata or {}
+    return {
+        "title":             metadata.get("title"),
+        "author":            metadata.get("author"),
+        "subject":           metadata.get("subject"),
+        "keywords":          metadata.get("keywords"),
+        "creator":           metadata.get("creator"),
+        "producer":          metadata.get("producer"),
+        "creation_date":     metadata.get("creationDate"),
+        "modification_date": metadata.get("modDate")
+    }
+
+
+# ==========================================================
+# PAGE SCREENSHOTS  (unchanged, still optional)
+# ==========================================================
+
+def save_page_screenshots(pdf_path, output_folder, scale=3):
+    pdf = pdfium.PdfDocument(pdf_path)
+    print("\nSaving page screenshots...")
+    for i in range(len(pdf)):
+        page = pdf[i]
+        bitmap = page.render(scale=scale)
+        image = bitmap.to_pil()
+        output_path = os.path.join(output_folder, f"page_{i+1:03}.png")
+        image.save(output_path)
+        print("Saved:", output_path)
+
+
+# ==========================================================
+# IMAGE EXTRACTION  (raster/embedded images — unchanged)
+# ==========================================================
+
+def extract_images(pdf):
+    image_records = []
+    image_counter = 1
+    print("\nExtracting embedded images...")
+    for page_num in range(len(pdf)):
+        page = pdf[page_num]
+        images = page.get_images(full=True)
+        for img in images:
+            xref = img[0]
+            try:
+                base_image = pdf.extract_image(xref)
+                image_bytes = base_image["image"]
+                ext = base_image["ext"]
+                filename = f"image_{image_counter:04}.{ext}"
+                filepath = os.path.join(IMAGE_FOLDER, filename)
+                with open(filepath, "wb") as f:
+                    f.write(image_bytes)
+                image_records.append({
+                    "page": page_num + 1,
+                    "file": filepath
+                })
+                image_counter += 1
+            except Exception as e:
+                print("Image extraction error:", e)
+    return image_records
+
+
+# ==========================================================
+# FIGURE REGION EXTRACTION
+# FIX 4 — Vector figures were completely ignored.
+# The AXI spec draws timing diagrams and channel diagrams using
+# PDF vector commands, not embedded image xrefs, so extract_images()
+# misses them entirely.  FIGURE_FOLDER was also created but never
+# written to.
+#
+# This function searches each page for the caption text we already
+# found, locates its bounding box, then renders and saves the page
+# region directly above the caption (where the figure sits).
+# The saved PNG path is stored back into the caption dict as "file"
+# so the JSON has a complete figure record.
+#
+# clip_height_pt controls how many PDF points above the caption
+# baseline are captured (default 220 ≈ ~3 inches at 72dpi, enough
+# for most AXI diagrams).  Increase if tall figures are clipped.
+# ==========================================================
+
+def extract_figure_regions(
+    pdf_page,
+    page_num,
+    captions,
+    output_folder,
+    scale=4,
+    clip_height_pt=120,
+    margin=12
+):
+    """
+    For each caption dict in `captions`, search the page for that
+    caption string, clip the region above it, render at `scale`x,
+    and save to `output_folder`.  The dict is updated in-place with
+    a "file" key containing the saved PNG path.
+    """
+    full_rect = pdf_page.rect
+    drawings = pdf_page.get_drawings()
+
+    for idx, cap in enumerate(captions):
+        caption_text = cap.get("caption", "")
+
+        # search_for returns a list of fitz.Rect hit boxes
+        # Search using just "Figure 3-1" not the full caption to avoid
+        # whitespace/encoding mismatches
+        short_match = re.match(r'(Figure\s+[A-Za-z]?\d+(?:[.\-]\d+)*)', caption_text, re.IGNORECASE)
+        search_text = short_match.group(1) if short_match else caption_text
+
+        hits = pdf_page.search_for(search_text)
+  
+        if not hits:
+            cap["file"] = None
+            cap["clip_rect"] = None
+            continue
+
+        cap_rect = hits[0]   # use first (topmost) hit
+
+        # Build clip rect: full page width, from `clip_height_pt`
+        # above the caption top down to the caption top.
+        # Clamped to the page top so we never go negative.
+        clip_rect = fitz.Rect(
+            full_rect.x0,
+            max(full_rect.y0, cap_rect.y0 - clip_height_pt),
+            full_rect.x1,
+            cap_rect.y0
+        )
+
+        search_rect = fitz.Rect(
+            full_rect.x0,
+            max(full_rect.y0, cap_rect.y0 - clip_height_pt),
+            full_rect.x1,
+            cap_rect.y0
+        )
+
+        visual_rects = []
+        for drawing in drawings:
+            r = drawing.get("rect")
+            if r and r.intersects(search_rect):
+                visual_rects.append(r & search_rect)
+
+        if visual_rects:
+            clip_rect = search_rect
+            # for r in visual_rects[1:]:
+            #     clip_rect |= r
+
+            
+        #     clip_rect = fitz.Rect(
+        #         max(full_rect.x0, clip_rect.x0 - margin),
+        #         max(full_rect.y0, clip_rect.y0 - margin),
+        #         min(full_rect.x1, clip_rect.x1 + margin),
+        #         min(full_rect.y1, clip_rect.y1 + margin)
+        #     )
+        # else:
+        #     clip_rect = search_rect
+
+        mat = fitz.Matrix(scale, scale)
+        pixmap = pdf_page.get_pixmap(matrix=mat, clip=clip_rect)
+
+        # Build a safe filename from the caption
+        safe_caption = re.sub(r'[^\w\-]', '_', caption_text)[:40]
+        filename = f"figure_p{page_num+1}_{idx+1}_{safe_caption}.png"
+        filepath = os.path.join(output_folder, filename)
+
+        pixmap.save(filepath)
+        cap["file"] = filepath  
+        cap["clip_rect"] = tuple(clip_rect) 
+
+    return captions   # list updated in-place, returned for clarity
+
+
+# ==========================================================
+# OCR FUNCTIONS
+# ==========================================================
+
+def extract_text_from_figure_region(pdf_page, clip_rect):
+    """
+    Extracts text directly from a PDF vector region using PyMuPDF.
+    Replaces OCR — works natively on vector PDFs like AXI and RISC-V specs.
+    Returns signal names, axis labels, and any other text in the figure area.
+    """
+    if clip_rect is None:
+        
+        return ""
+    try:
+        rect = fitz.Rect(clip_rect)
+        text = pdf_page.get_text("text", clip=rect).strip()
+        
+        return pdf_page.get_text("text", clip=clip_rect).strip()
+    except Exception as e:
+        print("Figure text extraction error:", e)
+        return ""
+
+
+# ==========================================================
+# TABLE EXTRACTION  (unchanged)
+# ==========================================================
+
+def extract_tables(page, page_num):
+    tables_found = []
+    try:
+        tables = page.find_tables()
+        for idx, table in enumerate(tables.tables):
+            try:
+                extracted = table.extract()
+                if not extracted:
+                    continue
+                df = pd.DataFrame(extracted)
+                csv_name = f"table_p{page_num+1}_{idx+1}.csv"
+                csv_path = os.path.join(TABLE_FOLDER, csv_name)
+                df.to_csv(csv_path, index=False)
+                tables_found.append({
+                    "page":     page_num + 1,
+                    "csv_file": csv_path
+                })
+            except Exception as e:
+                print(f"Table extraction error page {page_num+1}:", e)
+    except Exception:
+        pass
+    return tables_found
+
+
+# ==========================================================
+# TEXT ANALYSIS
+# ==========================================================
+
+def extract_headings_from_layout(layout):
+    """
+    Walk every text span in the page layout dict.
+    A line is a heading if it matches SECTION_REGEX (now fixed to
+    catch numeric sections like "2.3 Channel Signals").
+    Font-size guard removed — the regex is specific enough that
+    false positives are unlikely, and some AXI headings use body-
+    size fonts in the appendix.
+    """
+    headings = []
+    for block in layout.get("blocks", []):
+        if block.get("type") != 0:
+            continue
+        for line in block.get("lines", []):
+            spans = line.get("spans", [])
+            if not spans:
+                continue
+            text = "".join(span["text"] for span in spans).strip()
+            if re.search(r'\.{3,}\s*\d+$', text):
+                continue
+            
+            if re.fullmatch(r'\d+', text):
+                continue
+
+            if not text:
+                continue
+            match = SECTION_REGEX.match(text)
+            if match:
+                headings.append({
+                    "section_id": match.group(1),
+                    "title":      match.group(2),
+                    "font_size":  max(span["size"] for span in spans)
+                })
+    return headings
+
+
+def classify_requirement(text):
+    lower = text.lower()
+    if any(x in lower for x in ["latency", "throughput", "timing",
+                                  "frequency", "bandwidth"]):
+        return "Performance"
+    if any(x in lower for x in ["voltage", "current", "power"]):
+        return "Electrical"
+    if any(x in lower for x in ["temperature", "humidity"]):
+        return "Environmental"
+    if any(x in lower for x in ["safety", "hazard", "fault"]):
+        return "Safety"
+    if any(x in lower for x in ["interface", "spi", "uart", "i2c", "can"]):
+        return "Interface"
+    return "Functional"
+
+
+# def extract_requirements(text, section_id=None):
+#     requirements = []
+#     for line in text.splitlines():
+#         line = line.strip()
+#         if not line:
+#             continue
+#         if REQUIREMENT_REGEX.search(line):
+#             req_match = REQ_ID_REGEX.search(line)
+#             req_id = req_match.group(1) if req_match else None
+#             requirements.append({
+#                 "id":       req_id,
+#                 "section":  section_id,
+#                 "category": classify_requirement(line),
+#                 "text":     line
+#             })
+#     return requirements
+
+def extract_requirements(text, section_id=None):
+    requirements = []
+
+    clean_text = " ".join(text.split())
+
+    clean_text = re.sub(r'([a-z])([A-Z])', r'\1 \2', clean_text)
+    
+    sentences = re.split(r'(?<=[.!?])\s+', clean_text)
+
+    for line in sentences:
+        line = line.strip()
+        if not line:
+            continue
+
+        if REQUIREMENT_REGEX.search(line):
+            req_match = REQ_ID_REGEX.search(line)
+            req_id = req_match.group(1) if req_match else None
+
+            requirements.append({
+                "id":       req_id,
+                "section":  section_id,
+                "category": classify_requirement(line),
+                "text":     line
+            })
+
+    return requirements
+
+def extract_notes(text):
+    notes = []
+    for line in text.splitlines():
+        line = line.strip()
+        if NOTE_REGEX.match(line):
+            kind = line.split(":")[0].upper()
+            notes.append({"type": kind, "text": line})
+    return notes
+
+
+def extract_acronyms(text):
+    """
+    FIX 3 applied here: after collecting uppercase tokens we filter
+    against ACRONYM_STOPLIST to remove common English words that
+    happen to be all-caps (THE, AND, FOR, etc.).
+    """
+    found = set()
+    for match in ACRONYM_REGEX.finditer(text):
+        word = match.group(1)
+        # len > 1 was the original guard; we strengthen it to > 1
+        # AND not in the stoplist.
+        if len(word) > 1 and word not in ACRONYM_STOPLIST:
+            found.add(word)
+    return sorted(found)
+
+
+def extract_cross_references(text):
+    """
+    FIX 2 applied here.
+    ORIGINAL used SECTION_REF_REGEX with a capturing group, so
+    findall returned partial strings like ".3" instead of
+    "Section 2.3".  Now that the regex is non-capturing, findall
+    correctly returns the full matched strings.
+    """
+    refs = []
+    refs.extend(SECTION_REF_REGEX.findall(text))   # now returns full match
+    refs.extend(FIGURE_REF_REGEX.findall(text))
+    refs.extend(TABLE_REF_REGEX.findall(text))
+    return refs
+
+
+def build_section_tree(headings):
+    sections = []
+    for h in headings:
+        sid = h["section_id"]
+        parent = sid.rsplit(".", 1)[0] if "." in sid else None
+        sections.append({
+            "id":     sid,
+            "title":  h["title"],
+            "parent": parent
+        })
+    return sections
+
+
+# ==========================================================
+# SEMANTIC CHUNKS — rebuilt as section-level, not page-level
+# FIX 5 — ORIGINAL appended one chunk per page using
+#   create_semantic_chunk(page_num, current_section, text)
+# This means a single section spanning 4 pages created 4 separate
+# chunks, fragmenting the content.  The improved version below
+# groups text by section across all pages so each chunk represents
+# a complete section's prose, which is far more useful for RAG /
+# embedding pipelines.
+#
+# Called once after all pages are processed (see parse_pdf).
+# ==========================================================
+
+def build_semantic_chunks(pages):
+    """
+    Walk the already-processed page list and merge text by section.
+    When the section changes (a new heading was detected), flush the
+    current buffer as a completed chunk and start a new one.
+    Pages with no heading inherit the most recent section (same
+    behaviour as before, just accumulated rather than emitted).
+    """
+    chunks = []
+    current_section = None
+    buffer = []
+
+    for page in pages:
+        # If this page introduced new headings, flush the current buffer
+        if page["headings"]:
+            if buffer and current_section is not None:
+                chunks.append({
+                    "section": current_section,
+                    "text":    "\n".join(buffer).strip()
+                })
+            buffer = []
+            current_section = page["headings"][-1]["section_id"]
+
+        buffer.append(page["text"])
+
+    # Flush the last section
+    if buffer and current_section is not None:
+        chunks.append({
+            "section": current_section,
+            "text":    "\n".join(buffer).strip()
+        })
+
+    return chunks
+
+
+# ==========================================================
+# CAPTION EXTRACTORS
+# ==========================================================
+VALID_VPLAN_SECTION_REGEX = re.compile(
+   r'^(?:[A-C]\d+(?:\.\d+)*)$'
+)
+
+def is_valid_vplan_section(section):
+   if section is None:
+       return False
+   return VALID_VPLAN_SECTION_REGEX.match(str(section)) is not None
+
+def extract_figure_captions(text):
+    """
+    Collect lines that begin with 'Figure …' or 'Fig. …'.
+    Note: extract_figure_regions() is called separately in parse_pdf
+    to add the "file" key to each caption dict.
+    """
+    figures = []
+    for line in text.splitlines():
+        line = line.strip()
+        if FIGURE_CAPTION_REGEX.match(line):
+            figures.append({"caption": line, "file": None})
+    return figures
+
+def extract_table_captions(text):
+    tables = []
+    for line in text.splitlines():
+        line = line.strip()
+        if TABLE_REGEX.match(line):
+            tables.append({"caption": line})
+    return tables
+
+
+def extract_visual_requirement_hints(figure):
+    hints = []
+
+    caption = figure.get("caption", "")
+    ocr_text = figure.get("ocr_text", "")
+    combined = f"{caption}\n{ocr_text}".lower()
+
+    keywords = [
+        "valid", "ready", "reset", "aresetn", "aclk",
+        "handshake", "transfer", "asserted", "deasserted",
+        "stable", "high", "low", "write", "read",
+        "response", "address", "data"
+    ]
+
+    for keyword in keywords:
+        if keyword in combined:
+            hints.append(keyword.upper())
+
+    return sorted(set(hints))
+
+def extract_heading_from_text(text):
+
+    """
+    Fallback heading detector using raw page text.
+    Useful when PyMuPDF layout misses section headings.
+    """
+    
+
+    for line in text.splitlines()[:80]:
+        line = line.strip()
+
+        if not line:
+            continue
+
+        # Skip chapter headers
+        if line.lower().startswith("chapter"):
+            continue
+
+        # Skip table-of-contents entries like: A2.3 Title .... 29
+        if re.search(r'\.{3,}\s*\d+$', line):
+            continue
+
+        # Skip plain page numbers
+        if re.fullmatch(r'\d+', line):
+            continue
+
+        match = SECTION_REGEX.match(line)
+
+        if match:
+            section_id = match.group(1)
+            title = match.group(2).strip()
+
+            # Avoid garbage titles
+            if len(title) < 3:
+                continue
+
+            return {
+                "section_id": section_id,
+                "title": title,
+                "font_size": None
+            }
+
+    return None
+# ==========================================================
+# MAIN PARSER
+# ==========================================================
+
+def parse_pdf(pdf_path):
+
+    pdf = fitz.open(pdf_path)
+
+
+
+    image_records = extract_images(pdf)
+
+    document = {
+        "document_name":    os.path.basename(pdf_path),
+        "metadata":         extract_document_metadata(pdf),
+        "total_pages":      len(pdf),
+        "sections":         [],
+        "requirements":     [],
+        "figures":          [],
+        "tables":           [],
+        "notes":            [],
+        "acronyms":         [],
+        "cross_references": [],
+        "semantic_chunks":  [],
+        "pages":            []
+    }
+
+    print("\nProcessing pages...")
+
+    current_section = None
+
+    for page_num in range(len(pdf)):
+
+        page   = pdf[page_num]
+        layout = page.get_text("dict")
+        text   = page.get_text("text")
+
+        if page_num + 1 == 29:
+            print("\nPAGE 29 TEXT LINES")   
+            for i, line in enumerate(text.splitlines()[:120]):
+                print(i, repr(line))
+
+        headings = extract_headings_from_layout(layout)
+
+        text_heading = extract_heading_from_text(text)
+
+        if text_heading:
+            headings = [text_heading]
+
+        # Fallback: detect section heading directly from page text
+        if not headings:
+            for line in text.splitlines()[:20]:
+                line = line.strip()
+
+                # skip chapter/page headers
+                if line.lower().startswith("chapter"):
+                    continue
+
+                match = SECTION_REGEX.match(line)
+                if match:
+                    headings = [{
+                        "section_id": match.group(1),
+                        "title": match.group(2),
+                        "font_size": None
+                    }]
+                    break
+        if headings:
+            current_section = headings[-1]["section_id"]
+        elif current_section is None:
+            current_section = "Unknown"
+
+        requirements  = extract_requirements(text, current_section)
+        requirements = [
+            r for r in requirements
+            if is_valid_vplan_section(r.get("section"))
+        ]
+        
+        notes         = extract_notes(text)
+        acronyms      = extract_acronyms(text)
+        cross_refs    = extract_cross_references(text)
+        table_captions = extract_table_captions(text)
+        extracted_tables = extract_tables(page, page_num)
+
+        # --- Figure captions + region clipping (FIX 4) ---
+        # Step 1: find caption lines in the text
+        figures = extract_figure_captions(text)
+
+        # Step 2: for each caption, clip and save the page region
+        #         above it to FIGURE_FOLDER and store the path in
+        #         the caption dict under "file".
+        if figures:
+            extract_figure_regions(
+                pdf_page=page,
+                page_num=page_num,
+                captions=figures,
+                output_folder=FIGURE_FOLDER,
+                scale=4,
+                clip_height_pt=120
+            )
+        # --------------------------------------------------
+        for fig in figures:
+            fig["section"] = current_section
+            fig["page"] = page_num + 1
+            fig["ocr_text"] = extract_text_from_figure_region(page, fig.get("clip_rect"))
+            fig["visual_requirement_hints"] = extract_visual_requirement_hints(fig)
+
+            print("\nFIGURE:", fig["caption"])
+            print("SECTION:", fig["section"])
+            print("OCR TEXT:", fig["ocr_text"])
+            print("HINTS:", fig["visual_requirement_hints"])
+
+
+        page_images = [
+            img for img in image_records
+            if img["page"] == page_num + 1
+        ]
+
+        page_json = {
+            "page_number":   page_num + 1,
+            "text":          text,
+            "headings":      headings,
+            "requirements":  requirements,
+            "figures":       figures,          # now includes "file" key
+            "table_captions": table_captions,
+            "tables":        extracted_tables,
+            "images":        page_images
+        }
+
+        document["requirements"].extend(requirements)
+        document["notes"].extend(notes)
+        document["acronyms"].extend(acronyms)
+        document["cross_references"].extend(cross_refs)
+        document["figures"].extend(figures)
+        document["tables"].extend(extracted_tables)
+        document["pages"].append(page_json)
+
+        print(f"Processed page {page_num+1}/{len(pdf)}")
+
+    # ----------------------------------------------------------
+    # Post-processing: build section tree and semantic chunks
+    # ----------------------------------------------------------
+
+    all_headings = []
+    for p in document["pages"]:
+        all_headings.extend(p["headings"])
+    document["sections"] = build_section_tree(all_headings)
+
+    # FIX 5: section-level chunks built from all pages at once
+    document["semantic_chunks"] = build_semantic_chunks(document["pages"])
+
+    # Deduplicate acronyms (unchanged)
+    document["acronyms"] = sorted(set(document["acronyms"]))
+
+    # ----------------------------------------------------------
+    # Write JSON
+    # ----------------------------------------------------------
+
+    json_path = os.path.join(OUTPUT_DIR, "document.json")
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(document, f, indent=2, ensure_ascii=False)
+
+    print("\n===================================")
+    print("PARSING COMPLETE")
+    print("===================================")
+    print("JSON:    ", json_path)
+    print("Pages:   ", PAGE_FOLDER)
+    print("Images:  ", IMAGE_FOLDER)
+    print("Tables:  ", TABLE_FOLDER)
+    print("Figures: ", FIGURE_FOLDER)
+
+
+# ==========================================================
+# RUN
+# ==========================================================
+
+if __name__ == "__main__":
+    parse_pdf(PDF_PATH)
