@@ -29,8 +29,10 @@ How It Works:
 
 
 -Quality Check 
-    python3 extractor_quality_check.py --json path/to/document.json --pdf path/to/source.pdf
-
+    python3 extractor_quality_check.py \
+  --json "/home/eng-6990/PROJECT/extractor/document.json" \
+  --pdf "/home/eng-6990/PROJECT/PROJECT briefs and info./amba_axi_protocol_spec.pdf"
+  
 How It Works:
 
 1. Input PDF Spec. and extraction of it
