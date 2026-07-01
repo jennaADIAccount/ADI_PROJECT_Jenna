@@ -490,34 +490,42 @@ def build_section_tree(headings):
 
 def build_semantic_chunks(pages):
     """
-    Walk the already-processed page list and merge text by section.
-    When the section changes (a new heading was detected), flush the
-    current buffer as a completed chunk and start a new one.
-    Pages with no heading inherit the most recent section (same
-    behaviour as before, just accumulated rather than emitted).
+    Merge pages belonging to the same section into one semantic chunk.
+    Each chunk now records which pages contributed to it.
     """
+
     chunks = []
+
     current_section = None
     buffer = []
+    page_numbers = []
 
     for page in pages:
-        # If this page introduced new headings, flush the current buffer
+
+        # New section begins
         if page["headings"]:
+
+            # Save previous chunk
             if buffer and current_section is not None:
                 chunks.append({
                     "section": current_section,
-                    "text":    "\n".join(buffer).strip()
+                    "pages": page_numbers,
+                    "text": "\n".join(buffer).strip()
                 })
-            buffer = []
+
             current_section = page["headings"][-1]["section_id"]
+            buffer = []
+            page_numbers = []
 
         buffer.append(page["text"])
+        page_numbers.append(page["page_number"])
 
-    # Flush the last section
+    # Save final chunk
     if buffer and current_section is not None:
         chunks.append({
             "section": current_section,
-            "text":    "\n".join(buffer).strip()
+            "pages": page_numbers,
+            "text": "\n".join(buffer).strip()
         })
 
     return chunks
