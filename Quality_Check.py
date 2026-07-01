@@ -325,9 +325,26 @@ def score_completeness(
 
     semantic_chunks = document.get("semantic_chunks", [])
     semantic_chunks = semantic_chunks if isinstance(semantic_chunks, list) else []
-    semantic_chunk_coverage_score = pct(len(semantic_chunks), expected_page_count)
 
-    record_scores: list[float] = []
+    covered_pages = set()
+
+    for chunk in semantic_chunks:
+
+        if not isinstance(chunk, dict):
+            continue
+
+        pages_in_chunk = chunk.get("pages", [])
+
+        if isinstance(pages_in_chunk, list):
+            covered_pages.update(
+                p for p in pages_in_chunk
+                if isinstance(p, int)
+            )
+
+    semantic_chunk_coverage_score = pct(
+        len(covered_pages),
+        expected_page_count
+    )    record_scores: list[float] = []
     for key, fields in {
         "requirements": {"text", "category"},
         "figures": {"caption"},
