@@ -56,7 +56,7 @@ python extractor.py --input data/input.json
 
 ### Comparator
 ```bash
-python Spec_Version_Comparer.py --spec spec.json --extractor output.json
+python Spec_Version_Comparer.py VER_1_specification.json VER_2_specification.json
 ```
 
 ### Quality Checker
