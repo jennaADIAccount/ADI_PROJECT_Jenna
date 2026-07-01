@@ -42,8 +42,8 @@ This project is specific to:
 | Module | Input | Output | Purpose |
 | --- | --- | --- | --- |
 | Extractor | Specification PDF / JSON | `document.json`, Figures, Tables, Images | Parses and structures specification content |
-| Comparator | `Specification.json`, `Extractor_Output.json` | CSV, JSON, MD | Detects added, removed, and modified items |
-| Quality Checker | PDF, JSON, CSV, gold JSON | JSON | Measures extraction completeness and accuracy |
+| Comparator | `New_Version_Spec._Extracted.json`, `Old_Version_Spec._Extracted.json` | CSV, JSON, MD | Detects added, removed, and modified items |
+| Quality Checker | `Spec.`, `Spec._Extracted` PDF, JSON, CSV, gold JSON | JSON | Measures extraction completeness and accuracy |
 
 
 
