@@ -302,6 +302,52 @@ def classify_requirement(text: str) -> str:
         return "Interface"
     return "Functional"
 
+def collect_covered_pages(document: dict[str, Any]) -> set[int]:
+    covered_pages: set[int] = set()
+
+    def add_page(value: Any) -> None:
+        page_num = None
+        if isinstance(value, int):
+            page_num = value
+        elif isinstance(value, str) and value.strip().lstrip("-").isdigit():
+            page_num = int(value)
+        if page_num is not None and page_num >= 1:
+            covered_pages.add(page_num)
+
+    def process_chunk(chunk: dict[str, Any]) -> None:
+        pages_in_chunk = chunk.get("pages")
+        if isinstance(pages_in_chunk, list):
+            for p in pages_in_chunk:
+                add_page(p)
+
+        single_page = chunk.get("page")
+        if single_page is not None:
+            add_page(single_page)
+
+        start, end = chunk.get("page_start"), chunk.get("page_end")
+        if isinstance(start, int) and isinstance(end, int) and end >= start:
+            covered_pages.update(range(start, end + 1))
+
+    top_level_chunks = document.get("semantic_chunks", [])
+    if isinstance(top_level_chunks, list):
+        for chunk in top_level_chunks:
+            if isinstance(chunk, dict):
+                process_chunk(chunk)
+
+    pages = document.get("pages", [])
+    if isinstance(pages, list):
+        for page in pages:
+            if not isinstance(page, dict):
+                continue
+            nested_chunks = page.get("semantic_chunks", [])
+            if isinstance(nested_chunks, list):
+                for chunk in nested_chunks:
+                    if isinstance(chunk, dict):
+                        process_chunk(chunk)
+                        if not any(k in chunk for k in ("pages", "page", "page_start")):
+                            add_page(page.get("page_number"))
+
+    return covered_pages
 
 def score_completeness(
     document: dict[str, Any],
@@ -323,28 +369,11 @@ def score_completeness(
     source_text_chars = sum(len(text) for text in pdf_page_texts_value)
     text_coverage_score = pct(min(output_text_chars, source_text_chars), source_text_chars)
 
-    semantic_chunks = document.get("semantic_chunks", [])
-    semantic_chunks = semantic_chunks if isinstance(semantic_chunks, list) else []
+    covered_pages = collect_covered_pages(document)
+    semantic_chunk_coverage_score = pct(len(covered_pages), expected_page_count)
 
-    covered_pages = set()
-
-    for chunk in semantic_chunks:
-
-        if not isinstance(chunk, dict):
-            continue
-
-        pages_in_chunk = chunk.get("pages", [])
-
-        if isinstance(pages_in_chunk, list):
-            covered_pages.update(
-                p for p in pages_in_chunk
-                if isinstance(p, int)
-            )
-
-    semantic_chunk_coverage_score = pct(
-        len(covered_pages),
-        expected_page_count
-    )    record_scores: list[float] = []
+    record_scores: list[float] = []
+    
     for key, fields in {
         "requirements": {"text", "category"},
         "figures": {"caption"},
