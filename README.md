@@ -80,9 +80,9 @@ Currently supported specification families include:
 
 | Module | Input | Output | Purpose |
 |--------|-------|--------|---------|
-| **Extractor** | Specification PDF | `document.json`, figures, tables, images, CSV | Parses and structures specification content. |
-| **Quality Checker** | Specification PDF, extraction output, optional Gold JSON | JSON, CSV, Markdown reports | Evaluates extraction quality using completeness, accuracy, and table/figure capture metrics. |
-| **Comparator** | Two extracted specification JSON files | JSON, CSV, Markdown reports | Detects added, removed, and modified content between specification versions. |
+| **Extractor** | Specification PDF | `document.json`, figures, tables, images, CSV | Parses & structures specification content. |
+| **Quality Checker** | Specification PDF, Extraction output, (Optional) Gold JSON | JSON, CSV, Markdown reports | Evaluates extraction quality using completeness, accuracy, and table/figure capture metrics. |
+| **Comparator** | 2 Extracted Versions of Specification JSON | JSON, CSV, Markdown reports | Detects added, removed, and modified content between specification versions. |
 
 ---
 
@@ -98,7 +98,7 @@ The Extractor is responsible for converting specification PDFs into a structured
 
 * **Data Ingestion:** Accepts technical specification documents such as AMBA AXI or RISC-V ISA files .
 * **Content Extraction:** Extracts text layers, structural tables, layout markers, and embedded graphics .
-* **Data Serialization:** Automatically maps and organizes all parsed elements into a single, unified `document.json` file .
+* **Data Encoding:** Automatically maps and organizes all parsed elements into a single, unified `document.json` file .
 * **Asset Isolation:** Segregates data types to produce separate outputs for images, cropped figures, and tabular CSV files.
 
 ---
