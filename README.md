@@ -94,7 +94,7 @@ The Extractor is responsible for converting specification PDFs into a structured
 
 ---
 
-### 🔍 Core Responsibilities
+###  Core Responsibilities
 
 * **Data Ingestion:** Accepts technical specification documents such as AMBA AXI or RISC-V ISA files .
 * **Content Extraction:** Extracts text layers, structural tables, layout markers, and embedded graphics .
@@ -249,6 +249,14 @@ The $F_1$ score is the mean of Precision and Recall:
 
 $$F_1 = 2 \times \frac{\text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}}$$
 
+$$\text{Precision} = \frac{\text{True Positives}}{\text{Total Captured Items}}$$
+
+$$\text{Recall} = \frac{\text{True Positives}}{\text{Total Expected Items}}$$
+
+$$\text{True Positives} = \sum_{k \in K} \min(\text{Expected}_{k}, \text{Captured}_{k})$$
+$${\text{Expected = PyMuPDF Capturing}}$$
+$${\text{Captured = Actual Output from Extraction}}$$
+
 ---
 
 ### GOLD JSON Function
@@ -309,19 +317,27 @@ When a **Gold JSON** is supplied, the accuracy metric switches from heuristic va
 
 
 
-## :chart_with_upwards_trend: :chart_with_downwards_trend:   Task 3: Comparator
+## :chart_with_upwards_trend: :chart_with_downwards_trend: Task 3: Comparator
 
-The Comparator analyses two extracted specification versions and identifies differences.
+The Comparator analyzes two extracted specification versions side-by-side to identify evolutionary changes, wording modifications, and structural updates.
 
-### Responsibilities
+### 📋 Core Responsibilities
 
-- Builds a unique identifier for every extracted item.
-- Matches equivalent content across versions, even when document positions change.
-- Detects added, removed, and modified content.
-- Calculates similarity percentages between corresponding pages.
-- Attempts to infer likely reasons for detected modifications.
-- Produces comparison reports in JSON, CSV, and Markdown formats.
+#### 1. Identity & Cross-Version Matching
+* **Unique Tracking:** Builds a unique identifier for every extracted item.
+* **Position-Independent Matching:** Matches equivalent content across versions, even when document positions or page numbers change.
 
+#### 2. Change Detection & Similarity Analysis
+* **Mutation Detection:** Detects added, removed, and modified content between the specification versions.
+* **Reasoning Inference:** Attempts to infer likely reasons for detected modifications.
+* **Page Similarity Calculation:** Calculates similarity percentages between corresponding pages using an old-to-new text ratio:
+  
+  $$\text{similarity} = \frac{2 \times (\text{number of matching characters})}{\text{total characters in both strings combined}}$$
+
+* **Change Categorization Rules:** Based on the calculated similarity score, changes are categorized using the following logic:
+  * **`≥ 0.90`** → `"minor_wording_change"`  
+  * **`≥ 0.65`** → `"substantive_wording_change"`
+  * **Below that** → Falls back to `"content_change"` *(unless numbers, requirement words, or references changed first, which are checked before similarity and take priority)*
 ---
 
 # Output Files
