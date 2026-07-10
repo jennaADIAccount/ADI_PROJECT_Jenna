@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
   python3 "/home/eng-6990/PROJECT/extractor/extractor_quality_check.py" \
     --json "/home/eng-6990/PROJECT/extractor/RISC-V_VER.2.json/document.json" \
