@@ -11,9 +11,9 @@ This repository contains an AI-driven pipeline for extracting, comparing, and ev
 - [Supported Specifications](#supported-specifications)
 - [Pipeline Workflow](#pipeline-workflow)
 - [Module Details](#module-details)
-  - [Extractor](#-task-1-extractor)
-  - [Comparator](#-task-3-comparator)
-  - [Quality Checker](#-task-2-quality-checker)
+  - [Extractor](#Extractor)
+  - [Comparator](#Comparator)
+  - [Quality Checker](#Quality-Checker)
 - [Output Files](#output-files)
 - [Usage](#usage)
 
@@ -23,11 +23,11 @@ This repository contains an AI-driven pipeline for extracting, comparing, and ev
 
 This project develops an **AI-driven pipeline** capable of:
 
-- ✅ **Extracting** and parsing semiconductor specifications from PDFs
-- ✅ **Structuring** specifications into machine-readable JSON with metadata, sections, requirements, figures, and tables
-- ✅ **Comparing** specification versions to identify evolutionary changes, wording modifications, and structural updates
-- ✅ **Evaluating** extraction quality across completeness, accuracy, and figure/table capture dimensions
-- ✅ **Generating** verification plans and identifying coverage gaps
+- **Extracting** and parsing semiconductor specifications from PDFs
+- **Structuring** specifications into machine-readable JSON with metadata, sections, requirements, figures, and tables
+- **Comparing** specification versions to identify evolutionary changes, wording modifications, and structural updates
+- **Evaluating** extraction quality across completeness, accuracy, and figure/table capture dimensions
+- **Generating** verification plans and identifying coverage gaps
 
 ---
 
@@ -39,22 +39,20 @@ This project develops an **AI-driven pipeline** capable of:
 ├── Comparator.py             # Version comparison & change detection
 ├── Quality_Check.py          # Extraction quality evaluation
 ├── UI_File.py                # User interface (UI)
-├── Change Log                # Version history and updates
 └── README.md                 # This file
 ```
 
 **Output Directories:**
 - `{SPEC_NAME}_OUTPUT/` - Extractor outputs
   - `document.json` - Structured specification data
-  - `requirements.csv` - Extracted requirements
   - `figures/` - Isolated figures and diagrams
   - `tables/` - CSV files for tables
   - `images/` - Embedded images
 
 - `comparison_output/` - Comparator outputs
   - `version_differences.json` - Detailed change report
-  - `version_differences.csv` - Tabular change summary
-  - `version_differences.md` - Human-readable markdown report
+  - `version_differences.csv`
+  - `version_differences.md` 
 
 ---
 
@@ -69,37 +67,43 @@ Currently tested with:
 
 ## Pipeline Workflow
 
-```
+# Repository Workflow
+    
+  ```
                 Specification PDF
                         │
                         ▼
-                +─────────────────+
-                │   Extractor    │
-                +─────────────────+
+                +----------------+
+                |   Extractor    |
+                +----------------+
                         │
-         ┌──────────────┼──────────────┐
-         ▼              ▼              ▼
-    document.json   figures/      tables/ & images/
-         │
-         ├─────────────────────► Comparator ◄─── (Optional 2nd Version)
-         │                          │
-         │                          ▼
-         │                   Change Report (JSON/CSV/MD)
-         │
-         ▼
-    Quality Checker
-         │
-         ▼
-   Quality Report
-   (Completeness, Accuracy,
-    Table/Figure Capture)
+                        ▼
+                 document.json
+                 tables/
+                 figures/
+                 images/
+                 requirements.csv
+                        │
+                        ├──────────────► Comparator
+                        │                   │
+                        │                   ▼
+                        │            Change Report
+                        │
+                        ▼
+                 Quality Checker
+                        │
+                        ▼
+                Quality Metrics
+                 (Completeness,
+                    Accuracy,
+              Table/Figure Capture)
 ```
 
 ---
 
 ## Module Details
 
-### 🔍 Task 1: Extractor
+### 🔍 Extractor
 
 **Purpose:** Converts specification PDFs into structured JSON with extracted content and metadata.
 
@@ -130,11 +134,9 @@ Currently tested with:
 - Uses **PyMuPDF (fitz)** for PDF parsing and native text extraction
 - Uses **OpenAI GPT-4** for vision-based figure descriptions and accessibility text
 - Applies **regex patterns** for requirement and acronym detection
-- Outputs **canonical JSON format** for downstream processing
-
 ---
 
-### 📊 Task 3: Comparator
+### 📊 Comparator
 
 **Purpose:** Analyzes two specification versions to identify and categorize changes.
 
@@ -142,9 +144,9 @@ Currently tested with:
 - Two `document.json` files (old and new versions)
 
 **Output:**
-- `version_differences.json` - Structured change report
-- `version_differences.csv` - Tabular summary
-- `version_differences.md` - Markdown report
+- `JSON`
+- `CSV`
+- `MD`
 
 **Change Detection:**
 
@@ -162,7 +164,7 @@ The Comparator identifies and categorizes changes using:
 
 ---
 
-### ✅ Task 2: Quality Checker
+### ✅ Quality Checker
 
 **Purpose:** Evaluates the quality of extracted specifications across three dimensions.
 
@@ -175,6 +177,8 @@ The Comparator identifies and categorizes changes using:
 **Output:**
 - Quality report (JSON, CSV, Markdown, or console)
 - Three quality scores with pass/fail status
+
+---
 
 **Quality Metrics:**
 
@@ -192,7 +196,7 @@ The Comparator identifies and categorizes changes using:
 - CSV file existence
 
 **Accuracy Checks (without gold reference):**
-- Page text fidelity
+- Page text fidelity (Raw Text vs Extracted Text)
 - Requirement traceability
 - Category consistency
 - Page number accuracy
@@ -203,7 +207,7 @@ The Comparator identifies and categorizes changes using:
 - Requirement F1 score
 - Figure caption F1 score
 - Table caption F1 score
-- Page text fidelity
+- Page text fidelity (Raw Text vs Extracted Text)
 - JSON internal consistency
 
 **Table/Figure Capture Checks:**
@@ -215,39 +219,43 @@ The Comparator identifies and categorizes changes using:
 
 ---
 
-## Output Files
+## Quality Metrics Formula
 
-### Extractor Outputs
+**Completeness:**
 ```
-{SPEC_NAME}_OUTPUT/
-├── document.json           # Complete structured document
-├── requirements.csv        # Extracted requirements table
-├── figures/                # Isolated figures with descriptions
-│   ├── figure_0001.png
-│   └── ...
-├── tables/                 # CSV files from tables
-│   ├── table_p1_1.csv
-│   └── ...
-└── images/                 # Embedded images
-    ├── image_0001.png
-    └── ...
+= mean(required_json_fields, page_coverage, text_coverage, 
+       record_field_completeness, csv_presence)
 ```
 
-### Comparator Outputs
+**Accuracy (without gold reference):**
 ```
-comparison_output/
-├── version_differences.json    # Detailed change report
-├── version_differences.csv     # Tabular summary
-└── version_differences.md      # Markdown report
-```
-
-### Quality Checker Outputs
-```
-quality_report.json           # Full report (JSON)
-quality_report.csv            # Scores summary (CSV)
-quality_report.md             # Formatted report (Markdown)
+= mean(page_text_fidelity, requirement_traceability, 
+       category_consistency, page_number_accuracy, 
+       json_internal_consistency, csv_json_consistency)
 ```
 
+**Accuracy (with gold reference):**
+```
+= mean(requirement_f1, figure_caption_f1, table_caption_f1, 
+       page_text_fidelity, json_internal_consistency)
+```
+
+**Table/Figure Capture:**
+```
+= mean(table_detection_f1, table_caption_f1, table_file_existence, 
+       figure_caption_f1, image_capture_f1)
+```
+---
+
+**F1 Score:**
+```
+F1 = 2 × (Precision × Recall) / (Precision + Recall)
+
+Precision = 
+Recall = 
+Positive Difference = 
+
+```
 ---
 
 ## Usage
@@ -302,47 +310,17 @@ python Quality_Check.py \
 --report-json path/to/output_report.json     # Save report as JSON
 ```
 
-### UI Interface
+---
+
+## UI Interface
+- Provides graphical interface for Extractor, Comparator, V-Plan Generator and Quality Checker workflows.
+
+<img width="1535" height="1024" alt="ChatGPT Image Jul 11, 2026, 04_04_48 PM" src="https://github.com/user-attachments/assets/152915bf-316f-468d-b5f9-b339673379ad" />
+
+
 ```bash
 python UI_File.py
 ```
-
-Provides graphical interface for Extractor and Comparator workflows.
-
----
-
-## Quality Metrics Formula
-
-**Completeness:**
-```
-= mean(required_json_fields, page_coverage, text_coverage, 
-       record_field_completeness, csv_presence)
-```
-
-**Accuracy (without gold reference):**
-```
-= mean(page_text_fidelity, requirement_traceability, 
-       category_consistency, page_number_accuracy, 
-       json_internal_consistency, csv_json_consistency)
-```
-
-**Accuracy (with gold reference):**
-```
-= mean(requirement_f1, figure_caption_f1, table_caption_f1, 
-       page_text_fidelity, json_internal_consistency)
-```
-
-**Table/Figure Capture:**
-```
-= mean(table_detection_f1, table_caption_f1, table_file_existence, 
-       figure_caption_f1, image_capture_f1)
-```
-
-**F1 Score:**
-```
-F1 = 2 × (Precision × Recall) / (Precision + Recall)
-```
-
 ---
 
 ## Performance Considerations
@@ -353,13 +331,3 @@ F1 = 2 × (Precision × Recall) / (Precision + Recall)
 - **Gold reference:** Provides ground-truth F1-based scoring (requires manual verification)
 
 ---
-
-## License & Attribution
-
-This repository is part of the APRIL AI Hub Summer Internship Programme and is funded by **Analog Devices**.
-
----
-
-## Contact & Support
-
-For issues or questions, please refer to the project documentation or contact the repository maintainer.
