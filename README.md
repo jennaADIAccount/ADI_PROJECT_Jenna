@@ -303,7 +303,7 @@ table_figure_capture = mean(
 ---
 # UI Interface 
 For Extractor and Comparator
-<img width="1920" height="1080" alt="Screenshot From 2026-07-10 12-02-12" src="https://github.com/user-attachments/assets/63c19613-d73b-4cc4-82c1-992940ee0812" />
+<img width="1920" height="1080" alt="Screenshot From 2026-07-10 12-02-12" src="https://github.com/user-attachments/assets/f07c70b9-0e76-43d8-998f-47d502066144" />
 
 !!!TBC!!!
 
