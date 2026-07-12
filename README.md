@@ -158,7 +158,7 @@ The Comparator identifies and categorizes changes using:
 
 ---
 
-## ✅ Quality Checker
+## ✅ Quality Checker {#quality-checker}
 
 **Purpose:** Evaluates the quality of extracted specifications across three dimensions.
 
@@ -395,7 +395,7 @@ python Comparator.py path/to/old_document.json path/to/new_document.json
 --md-name version_differences.md
 ```
 
-### Quality Check
+### Quality Checker
 ```bash
 python Quality_Check.py \
     --json data/document.json \
