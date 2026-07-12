@@ -395,7 +395,7 @@ python Comparator.py path/to/old_document.json path/to/new_document.json
 --md-name version_differences.md
 ```
 
-### Quality Checker
+### Quality Check
 ```bash
 python Quality_Check.py \
     --json data/document.json \
