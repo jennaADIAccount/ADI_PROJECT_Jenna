@@ -1,6 +1,6 @@
 #  Analog Devices & APRILAI Project
 
-This repository contains an AI-driven pipeline for extracting, comparing, and evaluating engineering specification documents. It is part of the **APRIL AI Hub Summer Internship Programme (AI for Production Resilience & Intelligent Learning)**.
+This repository contains an AI-driven pipeline for extracting, comparing, and evaluating engineering specification documents. It is part of the **APRIL AI Hub Research Ready Summer Internship Programme**.
 
 ---
 
