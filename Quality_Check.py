@@ -1,11 +1,5 @@
 
 """
-  python3 "/home/eng-6990/PROJECT/extractor/extractor_quality_check.py" \
-    --json "/home/eng-6990/PROJECT/extractor/RISC-V_VER.2.json/document.json" \
-    --pdf "/home/eng-6990/PROJECT/RISC-V_VER.2.pdf"
-
-
-
 Quality checker for engineering specification extractor outputs.
 
 The checker reports three final percentages and pass/fail labels:
@@ -17,8 +11,7 @@ The checker reports three final percentages and pass/fail labels:
            page_coverage_score,
            text_coverage_score,
            semantic_chunk_coverage_score,
-           record_field_completeness_score,
-           csv_presence_score
+           record_field_completeness_score
        )
 
 2. Accuracy percentage
@@ -28,8 +21,7 @@ The checker reports three final percentages and pass/fail labels:
            requirement_traceability_score,
            category_consistency_score,
            page_number_accuracy_score,
-           json_internal_consistency_score,
-           csv_json_consistency_score
+           json_internal_consistency_score
        )
 
    Formula with --gold-json: can input a gold reference document to use for quality check 
@@ -58,7 +50,6 @@ The default threshold is 95%.
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import os
 import re
@@ -156,13 +147,6 @@ def load_json(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"{path} must contain a JSON object at the top level")
     return data
-
-
-def read_csv_rows(path: Path | None) -> list[dict[str, str]]:
-    if path is None:
-        return []
-    with path.open("r", encoding="utf-8-sig", newline="") as handle:
-        return list(csv.DictReader(handle))
 
 
 def infer_pdf_path(json_path: Path, document: dict[str, Any]) -> Path | None:
@@ -361,8 +345,6 @@ def collect_covered_pages(document: dict[str, Any]) -> set[int]:
 def score_completeness(
     document: dict[str, Any],
     pdf_page_texts_value: list[str],
-    csv_rows: list[dict[str, str]],
-    csv_path: Path | None,
 ) -> Score:
     required_json_field_score = pct(
         len(REQUIRED_TOP_LEVEL_KEYS.intersection(document.keys())),
@@ -404,24 +386,18 @@ def score_completeness(
         record_scores.append(pct(passed, checks))
     record_field_completeness_score = mean(record_scores)
 
-    if csv_path is None:
-        csv_presence_score = 100.0
-    else:
-        csv_presence_score = 100.0 if csv_path.is_file() and csv_rows else 0.0
-
     component_scores = {
         "required_json_field_score": required_json_field_score,
         "page_coverage_score": page_coverage_score,
         "text_coverage_score": text_coverage_score,
        # "semantic_chunk_coverage_score": semantic_chunk_coverage_score,
         "record_field_completeness_score": record_field_completeness_score,
-        "csv_presence_score": csv_presence_score,
     }
 
     return Score(
         name="completeness",
         percentage=mean(component_scores.values()),
-        formula="mean(required_json_field, page_coverage, text_coverage, semantic_chunk_coverage, record_field_completeness, csv_presence)",
+        formula="mean(required_json_field, page_coverage, text_coverage, semantic_chunk_coverage, record_field_completeness)",
         details=component_scores,
     )
 
@@ -429,7 +405,6 @@ def score_completeness(
 def score_accuracy(
     document: dict[str, Any],
     pdf_page_texts_value: list[str],
-    csv_rows: list[dict[str, str]],
     gold_document: dict[str, Any] | None,
 ) -> Score:
     pages = document.get("pages", [])
@@ -486,16 +461,6 @@ def score_accuracy(
     }
     json_internal_consistency_score = pct(sum(internal_checks.values()), len(internal_checks))
 
-    csv_json_consistency_score = 100.0
-    if csv_rows:
-        json_texts = Counter(normalise_text(req.get("text")) for req in top_requirements if isinstance(req, dict) and req.get("text"))
-        csv_text_values = Counter()
-        for row in csv_rows:
-            text = row.get("text") or row.get("requirement") or row.get("Requirement") or row.get("Text")
-            if text:
-                csv_text_values[normalise_text(text)] += 1
-        csv_json_consistency_score = f1_from_counters(json_texts, csv_text_values) if csv_text_values else 0.0
-
     if gold_document is not None:
         gold_requirements = gold_document.get("requirements", [])
         gold_requirements = gold_requirements if isinstance(gold_requirements, list) else []
@@ -523,9 +488,8 @@ def score_accuracy(
             "category_consistency_score": category_consistency_score,
             "page_number_accuracy_score": page_number_accuracy_score,
             "json_internal_consistency_score": json_internal_consistency_score,
-            "csv_json_consistency_score": csv_json_consistency_score,
         }
-        formula = "mean(page_text_fidelity, requirement_traceability, category_consistency, page_number_accuracy, json_internal_consistency, csv_json_consistency)"
+        formula = "mean(page_text_fidelity, requirement_traceability, category_consistency, page_number_accuracy, json_internal_consistency)"
 
     return Score(name="accuracy", percentage=mean(component_scores.values()), formula=formula, details=component_scores)
 
@@ -596,14 +560,11 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
     pdf = open_pdf(pdf_path)
     source_page_texts = pdf_page_texts(pdf)
 
-    csv_path = Path(args.csv).expanduser().resolve() if args.csv else None
-    csv_rows = read_csv_rows(csv_path)
-
     gold_document = load_json(Path(args.gold_json).expanduser().resolve()) if args.gold_json else None
 
     scores = [
-        score_completeness(document, source_page_texts, csv_rows, csv_path),
-        score_accuracy(document, source_page_texts, csv_rows, gold_document),
+        score_completeness(document, source_page_texts),
+        score_accuracy(document, source_page_texts, gold_document),
         score_table_figure_capture(document, pdf, source_page_texts, json_path),
     ]
 
@@ -622,7 +583,6 @@ def build_report(args: argparse.Namespace) -> dict[str, Any]:
         "inputs": {
             "json": str(json_path),
             "pdf": str(pdf_path) if pdf_path else None,
-            "csv": str(csv_path) if csv_path else None,
             "gold_json": str(Path(args.gold_json).expanduser().resolve()) if args.gold_json else None,
             "threshold": args.threshold,
         },
@@ -637,8 +597,6 @@ def print_report(report: dict[str, Any]) -> None:
     print("=======================")
     print(f"JSON: {report['inputs']['json']}")
     print(f"PDF:  {report['inputs']['pdf'] or 'not supplied/found'}")
-    if report["inputs"]["csv"]:
-        print(f"CSV:  {report['inputs']['csv']}")
     if report["inputs"]["gold_json"]:
         print(f"Gold: {report['inputs']['gold_json']}")
     print()
@@ -657,7 +615,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Check extractor JSON/CSV output quality.")
     parser.add_argument("--json", required=True, help="Path to extractor document.json output.")
     parser.add_argument("--pdf", help="Path to the source PDF. If omitted, the checker tries to infer it.")
-    parser.add_argument("--csv", help="Optional extractor CSV output to compare with JSON requirements.")
     parser.add_argument("--gold-json", help="Optional manually checked reference JSON for true accuracy/F1 scoring.")
     parser.add_argument("--threshold", type=float, default=95.0, help="Pass/fail threshold percentage. Default: 95.")
     parser.add_argument("--report-json", help="Optional path to write the quality report as JSON.")
