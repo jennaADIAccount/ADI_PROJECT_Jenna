@@ -11,8 +11,8 @@ This repository contains an AI-driven pipeline for extracting, comparing, and ev
 - [Supported Specifications](#supported-specifications)
 - [Pipeline Workflow](#pipeline-workflow)
 - [Module Details](#module-details)
-  - [Extractor](#extractor)
-  - [Comparator](#comparator)
+  - [Extractor](#-extractor)
+  - [Comparator](#-comparator)
   - [Quality Checker](#-quality-checker)
 - [Usage](#usage)
 
