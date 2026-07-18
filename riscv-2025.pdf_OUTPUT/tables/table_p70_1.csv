@@ -1,9 +1,0 @@
-0,1
-AMO Class,Supported Operations
-"AMONone
-AMOSwap
-AMOLogical
-AMOArithmetic","None
-amoswap
-above + amoand, amoor, amoxor
-above + amoadd, amomin, amomax, amominu, amomaxu"

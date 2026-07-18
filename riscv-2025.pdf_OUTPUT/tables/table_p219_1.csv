@@ -1,3 +1,0 @@
-0,1,2,3,4,5
-funct7,rs2,rs1,funct3,rd,opcode
-imm[11:0],,rs1,funct3,rd,opcode

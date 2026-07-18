@@ -1,6 +1,0 @@
-0,1
-Value,Description
-00,Pointer masking is disabled (PMLEN=0)
-01,Reserved
-10,Pointer masking is enabled with PMLEN=XLEN-57 (PMLEN=7 on RV64)
-11,Pointer masking is enabled with PMLEN=XLEN-48 (PMLEN=16 on RV64)

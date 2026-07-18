@@ -1,7 +1,0 @@
-0,1,2,3,4
-Number,Privilege,Width,Name,Description
-0x152,SRW,XLEN,sireg2,Supervisor indirect register alias 2
-0x153,SRW,XLEN,sireg3,Supervisor indirect register alias 3
-0x155,SRW,XLEN,sireg4,Supervisor indirect register alias 4
-0x156,SRW,XLEN,sireg5,Supervisor indirect register alias 5
-0x157,SRW,XLEN,sireg6,Supervisor indirect register alias 6

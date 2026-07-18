@@ -1,6 +1,0 @@
-0,1
-Privilege Mode,xLPE
-M,mseccfg.MLPE
-S or HS,menvcfg.LPE
-VS,henvcfg.LPE
-U or VU,senvcfg.LPE

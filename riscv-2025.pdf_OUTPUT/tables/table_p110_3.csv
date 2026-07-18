@@ -1,9 +1,0 @@
-0,1
-Field,Description
-WRPTR,"WARL field that indicates the physical CTR buffer entry to be written next. It is incremented
-after new transfers are recorded (see Section 11.5), though there are exceptions when x
-ctrctl.RASEMU=1, see Section 11.5.4. For a given CTR depth (where depth = 2(DEPTH+4)), WRPTR
-wraps to 0 on an increment when the value matches depth-1, and to depth-1 on a decrement
-when the value is 0. Bits above those needed to represent depth-1 (e.g., bits 7:4 for a depth of
-16) are read-only 0. On depth changes, WRPTR holds an unspecified but legal value."
-FROZEN,Inhibit transfer recording. See Section 11.5.5.
