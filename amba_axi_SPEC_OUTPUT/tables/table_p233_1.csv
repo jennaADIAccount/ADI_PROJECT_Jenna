@@ -1,8 +1,0 @@
-0,1
-"DVM v9.2 DVM v8.4 DVM v8.1 DVM v8
-_ _ _ _",Armv9.2 Armv8.4 Armv8.1 Armv8 Armv7
-True True or False True or False True or False,Y Y Y Y Y
-False True True or False True or False,- Y Y Y Y
-False False True True or False,- - Y Y Y
-False False False True,- - - Y Y
-False False False False,- - - - Y

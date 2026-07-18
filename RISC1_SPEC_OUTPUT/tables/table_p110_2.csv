@@ -1,8 +1,0 @@
-0,1,2
-Field,Description,Access
-TYPE[3:0],"Identifies the type of the control flow transfer recorded in the entry, using the
-encodings listed in Table 33. Implementations that do not support this field will report
-0.",WARL
-CCV,Cycle Count Valid. See Cycle Counting.,WARL
-CC[15:0],"Cycle Count, composed of the Cycle Count Exponent (CCE, in CC[15:12]) and Cycle
-Count Mantissa (CCM, in CC[11:0]). See Cycle Counting.",WARL

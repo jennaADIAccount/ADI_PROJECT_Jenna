@@ -1,4 +1,0 @@
-0,1,2,3,4
-Number,Privilege,Width,Name,Description
-0x150,SRW,XLEN,siselect,Supervisor indirect register select
-0x151,SRW,XLEN,sireg,Supervisor indirect register alias

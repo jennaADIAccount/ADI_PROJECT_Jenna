@@ -1,6 +1,0 @@
-0,1,2,3,4,5,6,7
-10,11,10XX,0xB80,-0xBBF,Standard re,ad/write,
-10,11,11XX,0xBC0,-0xBFF,Custom rea,d/write,
-11,11,0XXX,0xF00,-0xF7F,Standard re,ad-only,
-11,11,10XX,0xF80,-0xFBF,Standard re,ad-only,
-11,11,11XX,0xFC0,-0xFFF,Custom rea,d-only,

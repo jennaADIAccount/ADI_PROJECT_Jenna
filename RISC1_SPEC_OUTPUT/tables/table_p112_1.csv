@@ -1,8 +1,0 @@
-0,1,2,3
-Transfer Type,Source Mode,Target Mode,
-,,Enabled,Disabled
-Trap,Enabled,Recorded.,"External trap. Not recorded by default,
-but see External Traps.."
-,Disabled,"Recorded, ctrsource.PC is 0.",Not recorded.
-Trap Return,Enabled,Recorded.,"Recorded, ctrtarget.PC is 0."
-,Disabled,Not recorded.,Not recorded.

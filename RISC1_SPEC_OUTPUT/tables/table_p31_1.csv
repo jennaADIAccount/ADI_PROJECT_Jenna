@@ -1,8 +1,0 @@
-0,1,2,3,4,5,6
-siselect,sireg,sireg2,sireg3,sireg4,sireg5,sireg6
-0xC0,eie0,none,none,none,none,none
-…,…,…,…,…,…,…
-0xFF,eie63,none,none,none,none,none
-0x200,ctrsource0,ctrtarget0,ctrdata0,0,0,0
-…,…,…,…,…,…,…
-0x2FF,ctrsource255,ctrtarget255,ctrdata255,0,0,0

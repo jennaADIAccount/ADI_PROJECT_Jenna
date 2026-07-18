@@ -1,8 +1,0 @@
-0,1,2,3,4
-siselect value,sireg,sireg4,sireg2,sireg5
-0x40,cycle1,cycleh1,cyclecfg14,cyclecfgh14
-0x41,,See bel,ow,
-0x42,instret1,instreth1,instretcfg14,instretcfgh14
-0x43,hpmcounter32,hpmcounter3h2,hpmevent32,hpmevent3h23
-…,…,…,…,…
-0x5F,hpmcounter312,hpmcounter31h2,hpmevent312,hpmevent31h23

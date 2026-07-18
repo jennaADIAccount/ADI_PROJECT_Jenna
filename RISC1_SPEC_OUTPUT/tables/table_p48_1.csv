@@ -1,9 +1,0 @@
-0,1,2
-Value,Name,Description
-"0
-1
-≥2","Direct
-Vectored
----","All traps set pc to BASE.
-Asynchronous interrupts set pc to BASE+4×cause.
-Reserved"

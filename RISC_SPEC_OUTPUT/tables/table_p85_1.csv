@@ -1,9 +1,0 @@
-0,1,2,3,4
-Number,Privilege,Width,Name,Description
-0x350,MRW,XLEN,miselect,Machine indirect register select
-0x351,MRW,XLEN,mireg,Machine indirect register alias
-0x352,MRW,XLEN,mireg2,Machine indirect register alias 2
-0x353,MRW,XLEN,mireg3,Machine indirect register alias 3
-0x355,MRW,XLEN,mireg4,Machine indirect register alias 4
-0x356,MRW,XLEN,mireg5,Machine indirect register alias 5
-0x357,MRW,XLEN,mireg6,Machine indirect register alias 6

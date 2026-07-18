@@ -1,5 +1,0 @@
-0,1
-Value,Meaning
-"0x00002000
-0x00002020","32-bit read for VS-stage address translation (RV32)
-32-bit write for VS-stage address translation (RV32)"

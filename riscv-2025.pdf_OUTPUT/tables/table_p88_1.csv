@@ -1,9 +1,0 @@
-0,1,2,3,4
-Number,Privilege,Width,Name,Description
-0x250,HRW,XLEN,vsiselect,Virtual supervisor indirect register select
-0x251,HRW,XLEN,vsireg,Virtual supervisor indirect register alias
-0x252,HRW,XLEN,vsireg2,Virtual supervisor indirect register alias 2
-0x253,HRW,XLEN,vsireg3,Virtual supervisor indirect register alias 3
-0x255,HRW,XLEN,vsireg4,Virtual supervisor indirect register alias 4
-0x256,HRW,XLEN,vsireg5,Virtual supervisor indirect register alias 5
-0x257,HRW,XLEN,vsireg6,Virtual supervisor indirect register alias 6
