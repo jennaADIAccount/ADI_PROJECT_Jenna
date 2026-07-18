@@ -10,7 +10,13 @@ The checker reports three final percentages and pass/fail labels:
            page_coverage_score,
            text_coverage_score,
            semantic_chunk_coverage_score,
+<<<<<<< HEAD
+           record_field_completeness_score,
+           cross_reference_recall_score,
+           requirement_recall_score
+=======
            record_field_completeness_score
+>>>>>>> upstream/main
        )
 
 2. Accuracy percentage
@@ -48,6 +54,18 @@ The default threshold is 95%.
 
 from __future__ import annotations
 
+from regex_patterns import (
+    SECTION_REGEX,
+    VALID_VPLAN_SECTION_REGEX,
+    TABLE_REF_REGEX,
+    SECTION_REF_REGEX,
+    REQUIREMENT_REGEX,
+    NOTE_REGEX,
+    ACRONYM_REGEX,
+)
+
+
+
 import argparse
 import json
 import os
@@ -80,21 +98,127 @@ REQUIRED_TOP_LEVEL_KEYS = {
     "pages",
 }
 
-VALID_REQUIREMENT_CATEGORIES = {
-    "Performance",
-    "Electrical",
-    "Environmental",
-    "Safety",
-    "Interface",
-    "Functional",
+CATEGORY_KEYWORDS = {
+    "Performance": [
+        "latency", "throughput", "timing", "frequency", "bandwidth",
+        "clock rate", "cycles per", "ipc", "mhz", "ghz", "performance",
+    ],
+    "Electrical": [
+        "voltage", "current", "power", "vdd", "vcc", "vref",
+        "amperage", "watt", "dissipation", "impedance",
+    ],
+    "Environmental": [
+        "temperature", "humidity", "thermal", "esd", "altitude", "vibration",
+    ],
+    "Safety": [
+        "safety", "hazard", "fault", "asil", "functional safety",
+        "redundant", "ecc", "parity", "error correction", "watchdog",
+    ],
+    "Security": [
+        "encryption", "authentication", "secure boot", "pmp", "tee",
+        "cryptograph", "attestation", "tamper",
+    ],
+    "Protocol": [
+        "axi", "amba", "ahb", "apb", "ace", "chi", "tilelink",
+        "burst", "handshake", "arvalid", "awvalid", "wready", "bvalid",
+        "arbiter", "master", "slave", "manager", "subordinate",
+        "outstanding transaction", "beat", "strobe",
+    ],
+    "Memory": [
+        "cache", "tlb", "mmu", "dram", "sram", "memory-mapped",
+        "memory map", "address space", "page table", "coherenc",
+        "physical address", "virtual address",
+    ],
+    "Architecture": [
+        "instruction", "opcode", "register", "risc-v", "riscv", "isa",
+        "extension", "privilege mode", "csr", "trap", "exception",
+        "interrupt", "pipeline", "hart", "atomic", "vector unit",
+    ],
+    "Interface": [
+        "interface", "pin", "signal", "spi", "uart", "i2c", "can",
+        "gpio", "jtag", "pcie",
+    ],
 }
 
+# "Functional" is the fallback category in classify_requirement() and has
+# no keyword list of its own, so it's added here explicitly.
+VALID_REQUIREMENT_CATEGORIES = set(CATEGORY_KEYWORDS.keys()) | {"Functional"}
+
 FIGURE_REGEX = re.compile(r"\b(?:Figure|Fig\.?)\s+([A-Za-z]?\d+(?:[-.]\d+)*)", re.IGNORECASE)
-TABLE_REGEX = re.compile(r"\bTable\s+([A-Za-z]?\d+(?:[-.]\d+)*)", re.IGNORECASE)
-REQUIREMENT_REGEX = re.compile(
-    r"\b(shall|must|will|should|required to|may not|is prohibited)\b",
+TABLE_REGEX = re.compile(
+    r'(?:Table)\s+([A-Za-z]?\d+(?:[-.]\d+)*)',
+    re.IGNORECASE
+)
+CROSS_REF_REGEX = re.compile(
+    r"^(Section|Table|Figure)\s+([A-Za-z]?\d+(?:[-.]\d+)*)$",
     re.IGNORECASE,
 )
+
+# Structural (pattern-based, not keyword-list-based) matchers for the two
+# priority spec families. These generalize across new signal/CSR names
+# without needing a growing hardcoded word list.
+AXI_SIGNAL_REGEX = re.compile(
+    r"\b[AR][RW](VALID|READY|LEN|SIZE|BURST|ID|ADDR|LOCK|CACHE|PROT|QOS|REGION)\b"
+    r"|\b[RWB](VALID|READY|DATA|LAST|STRB|RESP|ID)\b",
+    re.IGNORECASE,
+)
+RISCV_CSR_REGEX = re.compile(
+    r"\b(mstatus|mtvec|mepc|mcause|mtval|mie|mip|mscratch|mideleg|medeleg|"
+    r"satp|sstatus|stvec|sepc|scause|stval|sie|sip|sscratch|"
+    r"pmpcfg\d*|pmpaddr\d*|misa|mhartid|"
+    r"RV(?:32|64|128)[IEMAFDQC]*)\b",
+    re.IGNORECASE,
+)
+
+# Tie-break order for classify_requirement_scored(): when a requirement
+# scores equally across categories, prefer the priority spec families first.
+PRIORITY_ORDER = [
+    "Protocol", "Architecture", "Memory", "Security", "Safety",
+    "Electrical", "Performance", "Environmental", "Interface",
+]
+
+
+def cross_references_resolve(document: dict[str, Any]) -> bool:
+    cross_refs = document.get("cross_references", [])
+    if not isinstance(cross_refs, list) or not cross_refs:
+        return True
+
+    section_numbers = {
+        normalise_text(r.get("section"))
+        for r in document.get("requirements", [])
+        if isinstance(r, dict) and r.get("section")
+    }
+
+    table_numbers = set()
+    for page in document.get("pages", []) if isinstance(document.get("pages"), list) else []:
+        if not isinstance(page, dict):
+            continue
+        for cap in page.get("table_captions", []) if isinstance(page.get("table_captions"), list) else []:
+            caption = cap.get("caption") if isinstance(cap, dict) else None
+            if caption:
+                m = TABLE_REGEX.match(str(caption).strip())
+                if m:
+                    table_numbers.add(normalise_text(m.group(1)))
+
+    # Figures are not yet extracted reliably — skip figure refs rather than
+    # penalize them until figure extraction is in place.
+    lookup = {"section": section_numbers, "table": table_numbers}
+
+    resolved = total = 0
+    for ref in cross_refs:
+        if not isinstance(ref, str):
+            continue
+        m = CROSS_REF_REGEX.match(ref.strip())
+        if not m:
+            continue
+        ref_type, ref_num = m.group(1).lower(), normalise_text(m.group(2))
+        if ref_type == "figure":
+            continue  # skip — not counted toward total or resolved
+        total += 1
+        if ref_num in lookup[ref_type]:
+            resolved += 1
+
+    return total == 0 or resolved == total
 
 
 @dataclass
@@ -282,17 +406,102 @@ def requirement_counter(requirements: Iterable[dict[str, Any]]) -> Counter[str]:
 
 def classify_requirement(text: str) -> str:
     lower = text.lower()
-    if any(word in lower for word in ["latency", "throughput", "timing", "frequency", "bandwidth"]):
-        return "Performance"
-    if any(word in lower for word in ["voltage", "current", "power"]):
-        return "Electrical"
-    if any(word in lower for word in ["temperature", "humidity"]):
-        return "Environmental"
-    if any(word in lower for word in ["safety", "hazard", "fault"]):
-        return "Safety"
-    if any(word in lower for word in ["interface", "spi", "uart", "i2c", "can"]):
-        return "Interface"
+    for category, keywords in CATEGORY_KEYWORDS.items():
+        if any(word in lower for word in keywords):
+            return category
     return "Functional"
+
+
+def classify_requirement_scored(text: str) -> str:
+    """Companion to classify_requirement(): scores every category by keyword
+    hit count, boosts Protocol/Architecture using structural AXI/RISC-V
+    regex matches (no new keyword list needed), and breaks ties using
+    PRIORITY_ORDER so AXI/RISC-V-relevant categories win ambiguous cases.
+    Does not replace classify_requirement() - used as an additional signal.
+    """
+    lower = text.lower()
+    scores: dict[str, int] = {}
+    for category, keywords in CATEGORY_KEYWORDS.items():
+        hits = sum(1 for word in keywords if word in lower)
+        if hits:
+            scores[category] = hits
+
+    if AXI_SIGNAL_REGEX.search(text):
+        scores["Protocol"] = scores.get("Protocol", 0) + 2
+    if RISCV_CSR_REGEX.search(text):
+        scores["Architecture"] = scores.get("Architecture", 0) + 2
+
+    if not scores:
+        return "Functional"
+
+    best = max(scores.values())
+    tied = [category for category, value in scores.items() if value == best]
+    if len(tied) == 1:
+        return tied[0]
+    for category in PRIORITY_ORDER:
+        if category in tied:
+            return category
+    return tied[0]
+
+
+def requirement_recall_score(pdf_page_texts_value: list[str], top_requirements: list[dict]) -> float:
+    expected_sentences = 0
+    for text in pdf_page_texts_value:
+        for line in text.splitlines():
+            if REQUIREMENT_REGEX.search(line):
+                expected_sentences += 1
+    if expected_sentences == 0:
+        return 100.0
+    return pct(len(top_requirements), expected_sentences)
+
+
+def section_format_valid(requirements: list[dict]) -> bool:
+    sections = [r.get("section") for r in requirements if isinstance(r, dict) and r.get("section")]
+    if not sections:
+        return True
+    return all(VALID_VPLAN_SECTION_REGEX.match(str(s)) for s in sections)
+
+
+def axi_signal_fidelity_score(pdf_page_texts_value: list[str], top_requirements: list[dict]) -> float:
+    """F1 between AXI signal tokens (ARVALID, WREADY, etc.) mentioned in the
+    source PDF vs. tokens preserved in extracted requirement text. Self
+    neutralizes to 100 on non-AXI documents (empty source token set), so it
+    adds signal only where it's relevant without penalizing other specs."""
+    source_text = "\n".join(pdf_page_texts_value)
+    source_tokens = Counter(m.group(0).upper() for m in AXI_SIGNAL_REGEX.finditer(source_text))
+    if not source_tokens:
+        return 100.0
+    req_text = " ".join(
+        str(r.get("text")) for r in top_requirements if isinstance(r, dict) and r.get("text")
+    )
+    captured_tokens = Counter(m.group(0).upper() for m in AXI_SIGNAL_REGEX.finditer(req_text))
+    return f1_from_counters(source_tokens, captured_tokens)
+
+
+def riscv_csr_fidelity_score(pdf_page_texts_value: list[str], top_requirements: list[dict]) -> float:
+    """F1 between RISC-V CSR/ISA tokens (mstatus, satp, RV32I, etc.) mentioned
+    in the source PDF vs. tokens preserved in extracted requirement text.
+    Self neutralizes to 100 on non-RISC-V documents."""
+    source_text = "\n".join(pdf_page_texts_value)
+    source_tokens = Counter(m.group(0).upper() for m in RISCV_CSR_REGEX.finditer(source_text))
+    if not source_tokens:
+        return 100.0
+    req_text = " ".join(
+        str(r.get("text")) for r in top_requirements if isinstance(r, dict) and r.get("text")
+    )
+    captured_tokens = Counter(m.group(0).upper() for m in RISCV_CSR_REGEX.finditer(req_text))
+    return f1_from_counters(source_tokens, captured_tokens)
+
+
+def cross_reference_recall_score(pdf_page_texts_value: list[str], cross_refs: list) -> float:
+    all_text = "\n".join(pdf_page_texts_value)
+    expected = {normalise_text(m) for m in SECTION_REF_REGEX.findall(all_text)} | \
+               {normalise_text(m) for m in TABLE_REF_REGEX.findall(all_text)}
+    if not expected:
+        return 100.0
+    captured = {normalise_text(r) for r in cross_refs if isinstance(r, str)}
+    return pct(len(expected & captured), len(expected))
+
 
 def collect_covered_pages(document: dict[str, Any]) -> set[int]:
     covered_pages: set[int] = set()
@@ -341,6 +550,7 @@ def collect_covered_pages(document: dict[str, Any]) -> set[int]:
 
     return covered_pages
 
+
 def score_completeness(
     document: dict[str, Any],
     pdf_page_texts_value: list[str],
@@ -360,10 +570,13 @@ def score_completeness(
     text_coverage_score = pct(min(output_text_chars, source_text_chars), source_text_chars)
 
     covered_pages = collect_covered_pages(document)
-    #semantic_chunk_coverage_score = pct(len(covered_pages), expected_page_count)
+    semantic_chunk_coverage_score = pct(len(covered_pages), expected_page_count)
+
+    top_requirements = document.get("requirements", [])
+    top_requirements = top_requirements if isinstance(top_requirements, list) else []
 
     record_scores: list[float] = []
-    
+
     for key, fields in {
         "requirements": {"text", "category"},
         "figures": {"caption"},
@@ -389,14 +602,23 @@ def score_completeness(
         "required_json_field_score": required_json_field_score,
         "page_coverage_score": page_coverage_score,
         "text_coverage_score": text_coverage_score,
-       # "semantic_chunk_coverage_score": semantic_chunk_coverage_score,
+        "semantic_chunk_coverage_score": semantic_chunk_coverage_score,
         "record_field_completeness_score": record_field_completeness_score,
+<<<<<<< HEAD
+        "cross_reference_recall_score": cross_reference_recall_score(pdf_page_texts_value, document.get("cross_references", [])),
+        "requirement_recall_score": requirement_recall_score(pdf_page_texts_value, top_requirements),
+=======
+>>>>>>> upstream/main
     }
 
     return Score(
         name="completeness",
         percentage=mean(component_scores.values()),
+<<<<<<< HEAD
+        formula="mean(required_json_field, page_coverage, text_coverage, semantic_chunk_coverage, record_field_completeness, cross_reference_recall, requirement_recall)",
+=======
         formula="mean(required_json_field, page_coverage, text_coverage, semantic_chunk_coverage, record_field_completeness)",
+>>>>>>> upstream/main
         details=component_scores,
     )
 
@@ -446,6 +668,8 @@ def score_accuracy(
 
     internal_checks = {
         "requirements_match_page_aggregation": requirement_counter(top_requirements) == requirement_counter(page_requirements),
+        "section_format_valid": section_format_valid(top_requirements),
+        "cross_references_resolve": cross_references_resolve(document),
         "figures_match_page_aggregation": Counter(
             normalise_text(item.get("caption")) for item in document.get("figures", []) if isinstance(item, dict) and item.get("caption")
         )
@@ -481,14 +705,35 @@ def score_accuracy(
         }
         formula = "mean(requirement_f1, figure_caption_f1, table_caption_f1, page_text_fidelity, json_internal_consistency)"
     else:
+        category_priority_matches = 0
+        category_priority_checks = 0
+        for req in top_requirements:
+            if not isinstance(req, dict):
+                continue
+            text = req.get("text")
+            category = req.get("category")
+            if text and category:
+                category_priority_checks += 1
+                if category == classify_requirement_scored(str(text)) and category in VALID_REQUIREMENT_CATEGORIES:
+                    category_priority_matches += 1
+        category_consistency_priority_score = pct(category_priority_matches, category_priority_checks)
+
         component_scores = {
             "page_text_fidelity_score": page_text_fidelity_score,
             "requirement_traceability_score": requirement_traceability_score,
             "category_consistency_score": category_consistency_score,
             "page_number_accuracy_score": page_number_accuracy_score,
             "json_internal_consistency_score": json_internal_consistency_score,
+<<<<<<< HEAD
+            "category_consistency_priority_score": category_consistency_priority_score,
+            "axi_signal_fidelity_score": axi_signal_fidelity_score(pdf_page_texts_value, top_requirements),
+            "riscv_csr_fidelity_score": riscv_csr_fidelity_score(pdf_page_texts_value, top_requirements),
+        }
+        formula = "mean(page_text_fidelity, requirement_traceability, category_consistency, page_number_accuracy, json_internal_consistency, category_consistency_priority, axi_signal_fidelity, riscv_csr_fidelity)"
+=======
         }
         formula = "mean(page_text_fidelity, requirement_traceability, category_consistency, page_number_accuracy, json_internal_consistency)"
+>>>>>>> upstream/main
 
     return Score(name="accuracy", percentage=mean(component_scores.values()), formula=formula, details=component_scores)
 
