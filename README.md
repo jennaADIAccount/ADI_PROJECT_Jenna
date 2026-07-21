@@ -390,8 +390,8 @@ python Comparator.py path/to/old_document.json path/to/new_document.json
 
 ### Quality Checker
 ```bash
-python Quality_Check.py \
-    --json data/document.json \
+python Quality_Check.py 
+    --json data/document.json 
     --pdf docs/spec.pdf
 ```
 
