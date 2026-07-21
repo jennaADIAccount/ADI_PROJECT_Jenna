@@ -14,6 +14,7 @@ This repository contains an AI-driven pipeline for extracting, comparing, and ev
   - [Extractor](#-extractor)
   - [Comparator](#-comparator)
   - [Quality Checker](#-quality-checker)
+  - [Inconsistency Identifier](#-inconsistency-indentifier)
 - [Usage](#usage)
 
 ---
@@ -24,6 +25,7 @@ This project develops an **AI-driven pipeline** capable of:
 
 - **Extracting** and parsing semiconductor specifications from PDFs
 - **Structuring** specifications into machine-readable JSON with metadata, sections, requirements, figures, and tables
+- **Identifying** inconsistencies within specifications
 - **Comparing** specification versions to identify evolutionary changes, wording modifications, and structural updates
 - **Evaluating** extraction quality across completeness, accuracy, and figure/table capture dimensions
 - **Generating** verification plans and identifying coverage gaps
@@ -33,17 +35,17 @@ This project develops an **AI-driven pipeline** capable of:
 ## Repository Structure
 
 ```
-├── Extractor.py              # PDF parsing & structured data extraction
-├── Comparator.py             # Version comparison & change detection
-├── Quality_Check.py          # Extraction quality evaluation
-├── UI_File.py                # User interface (UI)
-└── README.md                 # This file
+├── Extractor.py                  # PDF parsing & structured data extraction
+├── Comparator.py                 # Version comparison & change detection
+├── Quality_Check.py              # Extraction quality evaluation
+├── Inconsistency_Identifier.py   # Identify contradictory requirement in specifications       
+├── UI_File.py                    # User interface (UI)
+└── README.md                     # This file
 ```
 
 **Output Directories:**
 - `{SPEC_NAME}_OUTPUT/` - Extractor outputs
   - `document.json` - Structured specification data
-  - `figures/` - Isolated figures and diagrams
   - `tables/` - CSV files for tables
   - `images/` - Embedded images
 
@@ -66,10 +68,9 @@ This project develops an **AI-driven pipeline** capable of:
                         ▼
                  document.json
                  tables/
-                 figures/
                  images/
                         │
-                        ├──────────────► Comparator
+        Inconsistency                 ├──────────────► Comparator
                         │                   │
                         │                   ▼
                         │            Change Report
@@ -106,7 +107,6 @@ Currently tested with:
 
 **Output:**
 - `document.json` - Complete structured document
-- `figures/` - Isolated figures with descriptions
 - `tables/` - CSV files extracted from tables
 - `images/` - Embedded images with accessibility descriptions
 
@@ -115,7 +115,6 @@ Currently tested with:
 | Feature | Description |
 |---------|-------------|
 | **Text Extraction** | Extracts text layers, structural elements, and layout markers from PDFs |
-| **Figure Isolation** | Detects figure captions and crops figures with refined bounding boxes; generates AI-powered accessibility descriptions (*Figure extraction is an unstable function due to the variability in PDF specifications*) |
 | **Table Extraction** | Discovers and exports tables as clean CSV spreadsheets |
 | **Requirement Classification** | Identifies mandatory constraints (shall, must, should) and categorizes by type (Performance, Security, Protocol, etc.) |
 | **Acronym Extraction** | Identifies and lists technical acronyms and abbreviations |
@@ -125,7 +124,6 @@ Currently tested with:
 
 **Technical Details:**
 - Uses **PyMuPDF (fitz)** for PDF parsing and native text extraction
-- Uses **OpenAI GPT-4** for vision-based figure descriptions and accessibility text
 - Applies **regex patterns** for requirement and acronym detection
 ---
 
@@ -178,7 +176,7 @@ The Comparator identifies and categorizes changes using:
 |--------|----------|
 | **Completeness** | Whether all expected document content was extracted |
 | **Accuracy** | Whether extracted content is correct and internally consistent; uses F1 scoring if Gold Reference inputted|
-| **Table/Figure Capture** | Whether tables, figures, and embedded images were correctly detected and exported |
+| **Table/Image Capture** | Whether tables, figures, and embedded images were correctly detected and exported |
 
 **Completeness Checks:**
 - Required JSON fields present
@@ -239,8 +237,7 @@ The Comparator identifies and categorizes changes using:
 | `metadata`         | Document metadata (author, title, etc.)      |
 | `total_pages`      | Total number of pages                        |
 | `sections`         | Document section hierarchy                   |
-| `requirements`     | All extracted requirements                   |
-| `figures`          | All extracted figures                        |
+| `requirements`     | All extracted requirements                   |                       |
 | `tables`           | All extracted tables                         |
 | `notes`            | Notes extracted from the document            |
 | `acronyms`         | List of acronyms and meanings                |
@@ -253,7 +250,6 @@ The Comparator identifies and categorizes changes using:
 | Record Type      | Required Fields    |
 | ---------------- | ------------------ |
 | **Requirements** | `text`, `category` |
-| **Figures**      | `caption`          |
 | **Tables**       | `page`, `csv_file` |
 
 ### Final Score
@@ -284,8 +280,7 @@ Average of all **6** metrics.
 
 | Check                            | Description                                                                                    |
 | -------------------------------- | ---------------------------------------------------------------------------------------------- |
-| **Requirements match**           | The top-level requirements list should exactly match the requirements stored inside each page. |
-| **Figures match**                | The top-level figure list should match the figures inside each page.                           |
+| **Requirements match**           | The top-level requirements list should exactly match the requirements stored inside each page. |                 |
 | **Tables reference valid pages** | Every table should point to an existing page.                                                  |
 
 ### Final Score
@@ -297,7 +292,7 @@ Average of all **6** metrics.
 ### Accuracy (With Gold Reference)
 
 ```text
-= mean(requirement_f1, figure_caption_f1, table_caption_f1,
+= mean(requirement_f1, table_caption_f1,
        page_text_fidelity, json_internal_consistency)
 ```
 
@@ -306,7 +301,6 @@ Average of all **6** metrics.
 | Metric             | Expected Data    | Extracted Data | What is Compared?           |
 | ------------------ | ---------------- | -------------- | --------------------------- |
 | Requirement F1     | Gold JSON        | Extracted JSON | Requirement category + text |
-| Figure Caption F1  | PDF or Gold JSON | Extracted JSON | Figure captions/labels      |
 | Table Caption F1   | PDF or Gold JSON | Extracted JSON | Table captions/labels       |
 | Table Detection F1 | PDF              | Extracted JSON | Number of tables per page   |
 | Image Capture F1   | PDF              | Extracted JSON | Number of images per page   |
@@ -407,11 +401,15 @@ python Quality_Check.py \
 --threshold 95                                # Pass threshold (default: 95%)
 --report-json path/to/output_report.json     # Save report as JSON
 ```
-
----
+### Inconsistency Identifier
+```bash
+--
+--
+--
+```
 
 ## UI Interface
-- Provides graphical interface for Extractor, Comparator, V-Plan Generator and Quality Checker workflows.
+- Provides graphical interface for Extractor, Comparator, Inconsistency Identifier V-Plan Generator and Quality Checker workflows.
 
 <img width="1535" height="1024" alt="ChatGPT Image Jul 11, 2026, 04_04_48 PM" src="https://github.com/user-attachments/assets/152915bf-316f-468d-b5f9-b339673379ad" />
 
