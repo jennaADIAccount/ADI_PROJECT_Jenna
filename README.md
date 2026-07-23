@@ -36,6 +36,7 @@ This project develops an **AI-driven pipeline** capable of:
 
 ```
 ├── Extractor.py                  # PDF parsing & structured data extraction
+├── Regex_patterns.py             # Regex for extractor and quality checker
 ├── Comparator.py                 # Version comparison & change detection
 ├── Quality_Check.py              # Extraction quality evaluation
 ├── Inconsistency_Identifier.py   # Identify contradictory requirement in specifications       
@@ -52,7 +53,7 @@ This project develops an **AI-driven pipeline** capable of:
 - `comparison_output/` - Comparator outputs
   - `version_differences.json` - Detailed change report
   - `version_differences.csv`
-  - `version_differences.md` 
+  - `version_differences.md` - (Best Organised) 
 
 ---
 ## Repository Workflow
@@ -176,7 +177,7 @@ The Comparator identifies and categorizes changes using:
 |--------|----------|
 | **Completeness** | Whether all expected document content was extracted |
 | **Accuracy** | Whether extracted content is correct and internally consistent; uses F1 scoring if Gold Reference inputted|
-| **Table/Image Capture** | Whether tables, figures, and embedded images were correctly detected and exported |
+| **Table/Image Capture** | Whether tables and embedded images were correctly detected and exported |
 
 **Completeness Checks:**
 - Required JSON fields present
@@ -193,7 +194,6 @@ The Comparator identifies and categorizes changes using:
 
 **Accuracy Checks (with Gold Reference):**
 - Requirement F1 score
-- Figure caption F1 score
 - Table caption F1 score
 - Page text fidelity (Raw Text vs. Extracted Text)
 - JSON internal consistency
@@ -202,7 +202,6 @@ The Comparator identifies and categorizes changes using:
 - Table detection F1 score (vs. PyMuPDF)
 - Table caption accuracy
 - Table file existence
-- Figure caption accuracy
 - Image capture F1 score
 
 ---
@@ -316,7 +315,7 @@ Average of all **6** metrics.
 
 ```text
 = mean(table_detection_f1, table_caption_f1, table_file_existence,
-       figure_caption_f1, image_capture_f1)
+       image_capture_f1)
 ```
 
 ### Metric Breakdown
@@ -326,7 +325,6 @@ Average of all **6** metrics.
 | **Table Detection F1**   | Compare expected tables, compare extracted tables.                   |
 | **Table Caption F1**     | Compare expected table captions, compare extracted table captions.   |
 | **Table File Existence** | Existing CSV files ÷ Total tables × 100                              |
-| **Figure Caption F1**    | Compare expected figure captions, compare extracted figure captions. |
 | **Image Capture F1**     | Compare expected image count, compare extracted image count.         |
 
 ### Calculation
@@ -421,7 +419,7 @@ python UI_File.py
 
 ## Performance Considerations
 
-- **Large PDFs (100+ pages):** Extract may take 5-10 minutes depending on complexity
+- **Large PDFs (100+ pages):** Extractor takes a minute per 100 pages depending on complexity
 - **Vision API calls:** Uses OpenAI GPT-4; costs scale with page count
 - **Gold reference:** Provides ground-truth F1-based scoring (requires manual verification)
 
